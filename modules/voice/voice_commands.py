@@ -1,0 +1,22 @@
+VOICE_COMMANDS = [
+    "clic",
+    "clic derecho",
+    "doble clic",
+    "copiar",
+    "pegar",
+    "cortar",
+    "deshacer",
+    "guardar",
+    "seleccionar todo",
+    "cambiar aplicacion",
+    "arrastrar",
+    "soltar",
+    "arriba",
+    "abajo",
+    "izquierda",
+    "derecha",
+    "acercar",
+    "alejar",
+    "dibujar",
+    "borrar"
+]
