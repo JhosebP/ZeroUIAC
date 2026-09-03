@@ -51,22 +51,18 @@ def main():
     )
 
     try:
-
-        # Voz en segundo plano
         voice_service.start()
-
-        # Cámara y control de cabeza
         head_service.run()
-
-    finally:
-
-        voice_service.stop()
-
+    
+    except KeyboardInterrupt:
         print("")
-        print(
-            "ZeroUI-AC finalizado."
-        )
-
+        print("Interrupción solicitada por el usuario.")
+    
+    finally:
+        voice_service.stop()
+    
+        print("")
+        print("ZeroUI-AC finalizado.")
 
 if __name__ == "__main__":
     main()

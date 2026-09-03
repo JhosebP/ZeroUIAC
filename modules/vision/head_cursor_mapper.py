@@ -56,7 +56,11 @@ class HeadCursorMapper:
             relative_pitch
         )
 
-        dx = relative_yaw * self.sensitivity_x
+        # El eje horizontal se invierte porque la imagen
+        # de la cámara está espejada con cv2.flip(frame, 1).
+        dx = -relative_yaw * self.sensitivity_x
+        
+        # El eje vertical ya tiene la dirección correcta.
         dy = relative_pitch * self.sensitivity_y
 
         dx = self._limit(dx)

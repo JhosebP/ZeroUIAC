@@ -65,6 +65,10 @@ class HeadControlService:
 
         self.range_start_time = None
 
+        self.last_neutral_calibration = 0.0
+        self.last_range_calibration = 0.0
+        self.calibration_cooldown = 3.0
+
     def run(self):
         """
         Inicia cámara y control por cabeza.
@@ -210,34 +214,25 @@ class HeadControlService:
 
                 if key == ord("q"):
                     break
-
+                
+                current_time = time.time()
+                
                 if key == ord("c"):
-                
-                    if not hasattr(self, "_c_pressed"):
-                        self._c_pressed = False
-                
-                    if not self._c_pressed:
+                    if (
+                        current_time - self.last_neutral_calibration
+                        >= self.calibration_cooldown
+                    ):
+                        self.last_neutral_calibration = current_time
                         self._calibrate_neutral()
-                        self._c_pressed = True
-                
-                else:
-                
-                    self._c_pressed = False
-                
                 
                 if key == ord("r"):
-                
-                    if not hasattr(self, "_r_pressed"):
-                        self._r_pressed = False
-                
-                    if not self._r_pressed:
+                    if (
+                        not self.range_calibration
+                        and current_time - self.last_range_calibration
+                        >= self.calibration_cooldown
+                    ):
+                        self.last_range_calibration = current_time
                         self._start_range_calibration()
-                        self._r_pressed = True
-                
-                else:
-                
-                    self._r_pressed = False
-
         finally:
 
             camera.release()
