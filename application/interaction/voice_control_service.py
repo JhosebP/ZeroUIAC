@@ -8,87 +8,132 @@ from modules.voice.recognizer import (
     VoiceRecognizer
 )
 
+from modules.voice.voice_commands import (
+    VOICE_ACTION_MAP
+)
+
 
 class VoiceControlService:
     """
-    Gestiona el reconocimiento de voz
-    en un hilo independiente.
+    Gestiona el reconocimiento de voz offline
+    y convierte los comandos reconocidos
+    en acciones del sistema.
     """
 
     def __init__(
         self,
-        mouse_controller,
+        action_executor,
         calibration_profile
     ):
+        self.action_executor = (
+            action_executor
+        )
 
-        self.mouse_controller = mouse_controller
+        self.profile = (
+            calibration_profile
+        )
 
-        self.profile = calibration_profile
-
-        self.stop_event = threading.Event()
+        self.stop_event = (
+            threading.Event()
+        )
 
         self.thread = None
 
     def _run(self):
-        """
-        Proceso interno de reconocimiento de voz.
-        """
 
-        recognizer = VoiceRecognizer(
-            sample_rate=(
-                self.profile.microphone_sample_rate
+        try:
+
+            recognizer = VoiceRecognizer(
+                sample_rate=(
+                    self.profile
+                    .microphone_sample_rate
+                )
             )
-        )
+
+        except FileNotFoundError as error:
+
+            print("")
+            print(
+                "ERROR DE VOZ:"
+            )
+            print(error)
+
+            return
 
         microphone = MicrophoneStream(
             sample_rate=(
-                self.profile.microphone_sample_rate
+                self.profile
+                .microphone_sample_rate
             ),
             gain=(
-                self.profile.microphone_gain
+                self.profile
+                .microphone_gain
             )
-        )
-
-        microphone.start()
-
-        print(
-            "Reconocimiento de voz iniciado."
         )
 
         try:
 
-            while not self.stop_event.is_set():
+            microphone.start()
+
+            print(
+                "Reconocimiento de voz iniciado."
+            )
+
+            while (
+                not self.stop_event.is_set()
+            ):
 
                 audio = microphone.read()
 
                 if audio is None:
                     continue
 
-                command = recognizer.process_audio(
-                    audio
+                command = (
+                    recognizer
+                    .process_audio(audio)
                 )
 
                 if command is None:
                     continue
 
                 print(
-                    f"Comando reconocido: {command}"
+                    f"Comando reconocido: "
+                    f"{command}"
                 )
 
-                # Durante el Sprint 1
-                # implementamos clic izquierdo.
-                if command == "clic":
+                action = (
+                    VOICE_ACTION_MAP
+                    .get(command)
+                )
 
-                    self.mouse_controller.left_click()
+                if action is None:
+
+                    print(
+                        "Comando reconocido, "
+                        "pero su función se "
+                        "implementará en "
+                        "Sprint 3."
+                    )
+
+                    continue
+
+                executed = (
+                    self.action_executor
+                    .execute(action)
+                )
+
+                if executed:
+
+                    print(
+                        f"Acción ejecutada: "
+                        f"{action.value}"
+                    )
 
         finally:
 
             microphone.stop()
 
     def start(self):
-        """
-        Inicia el reconocimiento de voz.
-        """
 
         self.stop_event.clear()
 
@@ -100,9 +145,6 @@ class VoiceControlService:
         self.thread.start()
 
     def stop(self):
-        """
-        Detiene el reconocimiento de voz.
-        """
 
         self.stop_event.set()
 

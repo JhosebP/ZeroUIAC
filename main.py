@@ -14,6 +14,14 @@ from infrastructure.windows.mouse_controller import (
     MouseController
 )
 
+from application.interaction.action_executor import (
+    ActionExecutor
+)
+
+from infrastructure.windows.keyboard_controller import (
+    KeyboardController
+)
+
 
 def main():
 
@@ -36,11 +44,20 @@ def main():
         MouseController()
     )
 
-    voice_service = (
-        VoiceControlService(
+    keyboard_controller = (
+        KeyboardController()
+    )
+
+    action_executor = (
+        ActionExecutor(
             mouse_controller,
-            profile
+            keyboard_controller
         )
+    )
+
+    voice_service = VoiceControlService(
+        action_executor,
+        profile
     )
 
     head_service = (
