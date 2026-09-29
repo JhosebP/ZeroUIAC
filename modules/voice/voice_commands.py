@@ -26,6 +26,16 @@ VOICE_COMMANDS = [
     "borrar"
 ]
 
+VOICE_MODE_COMMANDS = [
+    "activar dictado"
+]
+
+
+VOICE_GRAMMAR = (
+    VOICE_COMMANDS
+    + VOICE_MODE_COMMANDS
+)
+
 
 VOICE_ACTION_MAP = {
 

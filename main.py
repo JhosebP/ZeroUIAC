@@ -22,6 +22,22 @@ from infrastructure.windows.keyboard_controller import (
     KeyboardController
 )
 
+from modules.voice.voice_mode import (
+    VoiceModeManager
+)
+
+from modules.voice.dictation_recognizer import (
+    DictationRecognizer
+)
+
+from application.interaction.dictation_service import (
+    DictationService
+)
+
+from infrastructure.windows.text_input_controller import (
+    TextInputController
+)
+
 
 def main():
 
@@ -55,9 +71,64 @@ def main():
         )
     )
 
-    voice_service = VoiceControlService(
-        action_executor,
-        profile
+    voice_mode_manager = (
+        VoiceModeManager()
+    )
+
+    try:
+
+        dictation_recognizer = (
+            DictationRecognizer(
+                sample_rate=(
+                    profile
+                    .microphone_sample_rate
+                )
+            )
+        )
+
+    except FileNotFoundError as error:
+
+        print("")
+        print(
+            "ERROR DE DICTADO:"
+        )
+        print(error)
+
+        return
+
+    text_input_controller = (
+        TextInputController()
+    )
+
+    dictation_service = (
+        DictationService(
+            recognizer=(
+                dictation_recognizer
+            ),
+            text_input_controller=(
+                text_input_controller
+            ),
+            voice_mode_manager=(
+                voice_mode_manager
+            )
+        )
+    )
+
+    voice_service = (
+        VoiceControlService(
+            action_executor=(
+                action_executor
+            ),
+            calibration_profile=(
+                profile
+            ),
+            dictation_service=(
+                dictation_service
+            ),
+            voice_mode_manager=(
+                voice_mode_manager
+            )
+        )
     )
 
     head_service = (
