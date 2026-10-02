@@ -100,7 +100,20 @@ def test_navigation():
     )
 
 
-def test_sprint_3_commands_are_pending():
+def test_overlay_commands_are_mapped():
+
+    assert (
+        VOICE_ACTION_MAP["dibujar"]
+        == SystemAction.DRAW
+    )
+
+    assert (
+        VOICE_ACTION_MAP["borrar"]
+        == SystemAction.ERASE
+    )
+
+
+def test_zoom_commands_are_pending():
 
     assert (
         VOICE_ACTION_MAP["acercar"]
@@ -109,15 +122,5 @@ def test_sprint_3_commands_are_pending():
 
     assert (
         VOICE_ACTION_MAP["alejar"]
-        is None
-    )
-
-    assert (
-        VOICE_ACTION_MAP["dibujar"]
-        is None
-    )
-
-    assert (
-        VOICE_ACTION_MAP["borrar"]
         is None
     )

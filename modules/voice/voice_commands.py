@@ -92,6 +92,6 @@ VOICE_ACTION_MAP = {
     # corresponden al Sprint 3.
     "acercar": None,
     "alejar": None,
-    "dibujar": None,
-    "borrar": None,
+    "dibujar": SystemAction.DRAW,
+    "borrar": SystemAction.ERASE,
 }

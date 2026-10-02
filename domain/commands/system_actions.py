@@ -29,3 +29,6 @@ class SystemAction(str, Enum):
     NAV_DOWN = "nav_down"
     NAV_LEFT = "nav_left"
     NAV_RIGHT = "nav_right"
+    
+    DRAW = "draw"
+    ERASE = "erase"

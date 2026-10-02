@@ -13,6 +13,11 @@ from domain.commands.system_actions import (
     SystemAction
 )
 
+from domain.events.event_types import (
+    EventSource,
+    EventType
+)
+
 from modules.voice.voice_mode import (
     VoiceModeManager
 )
@@ -20,7 +25,7 @@ from modules.voice.voice_mode import (
 
 def create_service():
 
-    action_executor = MagicMock()
+    event_bus = MagicMock()
 
     profile = SimpleNamespace(
         microphone_sample_rate=16000,
@@ -32,7 +37,7 @@ def create_service():
     dictation_service = MagicMock()
 
     service = VoiceControlService(
-        action_executor=action_executor,
+        event_bus=event_bus,
         calibration_profile=profile,
         dictation_service=dictation_service,
         voice_mode_manager=mode_manager
@@ -40,17 +45,17 @@ def create_service():
 
     return (
         service,
-        action_executor,
+        event_bus,
         dictation_service,
         mode_manager
     )
 
 
-def test_normal_command_is_executed():
+def test_normal_command_publishes_event():
 
     (
         service,
-        action_executor,
+        event_bus,
         _,
         _
     ) = create_service()
@@ -61,10 +66,6 @@ def test_normal_command_is_executed():
         "copiar"
     )
 
-    action_executor.execute.return_value = (
-        True
-    )
-
     result = service.process_audio(
         b"audio",
         recognizer
@@ -72,17 +73,37 @@ def test_normal_command_is_executed():
 
     assert result == "copiar"
 
-    action_executor.execute \
-        .assert_called_once_with(
-            SystemAction.COPY
-        )
+    event_bus.publish \
+        .assert_called_once()
+
+    event = (
+        event_bus
+        .publish
+        .call_args
+        .args[0]
+    )
+
+    assert (
+        event.source
+        == EventSource.VOICE
+    )
+
+    assert (
+        event.event_type
+        == EventType.ACTION
+    )
+
+    assert (
+        event.action
+        == SystemAction.COPY
+    )
 
 
 def test_activate_dictation_starts_service():
 
     (
         service,
-        action_executor,
+        event_bus,
         dictation_service,
         _
     ) = create_service()
@@ -106,7 +127,7 @@ def test_activate_dictation_starts_service():
     recognizer.reset \
         .assert_called_once()
 
-    action_executor.execute \
+    event_bus.publish \
         .assert_not_called()
 
 
@@ -114,7 +135,7 @@ def test_dictation_mode_routes_audio_to_dictation():
 
     (
         service,
-        action_executor,
+        event_bus,
         dictation_service,
         mode_manager
     ) = create_service()
@@ -143,7 +164,7 @@ def test_dictation_mode_routes_audio_to_dictation():
     recognizer.process_audio \
         .assert_not_called()
 
-    action_executor.execute \
+    event_bus.publish \
         .assert_not_called()
 
 
@@ -179,11 +200,11 @@ def test_exit_dictation_resets_command_recognizer():
         .assert_called_once()
 
 
-def test_pending_sprint3_command_is_not_executed():
+def test_pending_sprint3_command_is_not_published():
 
     (
         service,
-        action_executor,
+        event_bus,
         _,
         _
     ) = create_service()
@@ -201,5 +222,5 @@ def test_pending_sprint3_command_is_not_executed():
 
     assert result == "acercar"
 
-    action_executor.execute \
+    event_bus.publish \
         .assert_not_called()

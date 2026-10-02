@@ -1,7 +1,86 @@
+import ctypes
 import pyautogui
 
 
 class MouseController:
+
+    SAFE_MARGIN = 8
+
+    def _clamp_point(
+        self,
+        x,
+        y
+    ):
+        """
+        Evita colocar el cursor exactamente
+        en las esquinas de la pantalla.
+        """
+
+        width, height = (
+            pyautogui.size()
+        )
+
+        margin = self.SAFE_MARGIN
+
+        min_x = margin
+        min_y = margin
+
+        max_x = max(
+            margin,
+            width - 1 - margin
+        )
+
+        max_y = max(
+            margin,
+            height - 1 - margin
+        )
+
+        safe_x = max(
+            min_x,
+            min(max_x, int(x))
+        )
+
+        safe_y = max(
+            min_y,
+            min(max_y, int(y))
+        )
+
+        return safe_x, safe_y
+
+    def _recover_cursor_from_corner(
+        self
+    ):
+        """
+        Recupera el cursor cuando el
+        FailSafe de PyAutoGUI detecta
+        una esquina.
+
+        Se mantiene FAILSAFE activado.
+        """
+
+        try:
+
+            x, y = (
+                pyautogui.position()
+            )
+
+            safe_x, safe_y = (
+                self._clamp_point(
+                    x,
+                    y
+                )
+            )
+
+            ctypes.windll \
+                .user32 \
+                .SetCursorPos(
+                    safe_x,
+                    safe_y
+                )
+
+        except Exception:
+            pass
+
     """
     Controla las acciones del mouse de Windows
     mediante PyAutoGUI.
@@ -13,31 +92,83 @@ class MouseController:
 
         self.dragging = False
 
-    def move_relative(self, dx, dy):
+    def move_relative(
+        self,
+        dx,
+        dy
+    ):
         """
-        Mueve el cursor de forma relativa.
+        Movimiento relativo protegido
+        contra las esquinas de pantalla.
         """
 
-        if dx == 0 and dy == 0:
-            return
-
-        pyautogui.moveRel(
-            dx,
-            dy,
-            duration=0
+        current_x, current_y = (
+            pyautogui.position()
         )
 
-    def move_to(self, x, y):
+        target_x = (
+            current_x + dx
+        )
+
+        target_y = (
+            current_y + dy
+        )
+
+        target_x, target_y = (
+            self._clamp_point(
+                target_x,
+                target_y
+            )
+        )
+
+        try:
+
+            pyautogui.moveTo(
+                target_x,
+                target_y,
+                duration=0
+            )
+
+            return True
+
+        except pyautogui.FailSafeException:
+
+            self._recover_cursor_from_corner()
+
+            return False
+
+    def move_to(
+        self,
+        x,
+        y
+    ):
         """
-        Mueve el cursor a una posición
-        absoluta de la pantalla.
+        Movimiento absoluto protegido
+        contra las esquinas de pantalla.
         """
 
-        pyautogui.moveTo(
-            x,
-            y,
-            duration=0
+        target_x, target_y = (
+            self._clamp_point(
+                x,
+                y
+            )
         )
+
+        try:
+
+            pyautogui.moveTo(
+                target_x,
+                target_y,
+                duration=0
+            )
+
+            return True
+
+        except pyautogui.FailSafeException:
+
+            self._recover_cursor_from_corner()
+
+            return False
 
     def left_click(self):
         """

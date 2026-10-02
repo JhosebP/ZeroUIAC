@@ -1,3 +1,12 @@
+from domain.events.event_types import (
+    EventSource,
+    EventType
+)
+
+from domain.events.interaction_event import (
+    InteractionEvent
+)
+
 import threading
 
 from modules.voice.microphone import (
@@ -37,13 +46,13 @@ class VoiceControlService:
 
     def __init__(
         self,
-        action_executor,
+        event_bus,
         calibration_profile,
         dictation_service,
         voice_mode_manager
     ):
-        self.action_executor = (
-            action_executor
+        self.event_bus = (
+            event_bus
         )
 
         self.profile = (
@@ -119,17 +128,22 @@ class VoiceControlService:
 
             return command
 
-        executed = (
-            self.action_executor
-            .execute(action)
+        event = InteractionEvent(
+            source=EventSource.VOICE,
+            event_type=EventType.ACTION,
+            action=action,
+            confidence=1.0,
+            conflict_key="action"
         )
 
-        if executed:
+        self.event_bus.publish(
+            event
+        )
 
-            print(
-                f"Acción ejecutada: "
-                f"{action.value}"
-            )
+        print(
+            f"Evento de voz publicado: "
+            f"{action.value}"
+        )
 
         return command
 

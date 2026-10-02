@@ -86,11 +86,6 @@ class HandTracker:
             label = classification.label.lower()
             score = classification.score
 
-            print(
-                f"MediaPipe detectó: {label} "
-                f"- confianza: {score:.2f}"
-            )
-
             if label == desired_label:
                 return {
                     "landmarks": hand_landmarks,
@@ -128,6 +123,57 @@ class HandTracker:
             "x": wrist.x,
             "y": wrist.y,
             "z": wrist.z
+        }
+
+    def get_palm_center_position(
+        self,
+        hand_landmarks
+    ):
+        """
+        Obtiene el centro aproximado de la palma.
+    
+        Promedia muñeca y bases de los dedos
+        para obtener una posición más estable.
+        """
+    
+        if hand_landmarks is None:
+            return None
+    
+        landmark_ids = [
+            0,   # muñeca
+            5,   # índice MCP
+            9,   # medio MCP
+            13,  # anular MCP
+            17   # meñique MCP
+        ]
+    
+        points = [
+            hand_landmarks.landmark[
+                landmark_id
+            ]
+            for landmark_id
+            in landmark_ids
+        ]
+    
+        x = sum(
+            point.x
+            for point in points
+        ) / len(points)
+    
+        y = sum(
+            point.y
+            for point in points
+        ) / len(points)
+    
+        z = sum(
+            point.z
+            for point in points
+        ) / len(points)
+    
+        return {
+            "x": x,
+            "y": y,
+            "z": z
         }
 
     def draw_hand(
