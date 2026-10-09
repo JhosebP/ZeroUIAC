@@ -238,10 +238,18 @@ class MouseController:
 
     def get_position(self):
         """
-        Obtiene la posición actual del cursor.
+        Devuelve la posición actual
+        del cursor en pantalla.
         """
 
-        return pyautogui.position()
+        position = (
+            pyautogui.position()
+        )
+
+        return (
+            position.x,
+            position.y
+        )
 
     def get_screen_size(self):
         """

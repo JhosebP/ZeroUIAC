@@ -2,6 +2,7 @@ from application.calibration.calibration_service import (
     CalibrationService
 )
 
+from application.interaction import zoom_service
 from application.interaction.voice_control_service import (
     VoiceControlService
 )
@@ -54,6 +55,14 @@ from presentation.overlay.annotation_overlay import (
     AnnotationOverlay
 )
 
+from application.interaction.zoom_service import (
+    ZoomService
+)
+
+from infrastructure.windows.magnification_controller import (
+    MagnificationController
+)
+
 def main():
 
     print("")
@@ -74,6 +83,21 @@ def main():
 
     mouse_controller = (
         MouseController()
+    )
+
+    magnification_controller = (
+        MagnificationController()
+    )
+
+    zoom_service = (
+        ZoomService(
+            magnification_controller=(
+                magnification_controller
+            ),
+            mouse_controller=(
+                mouse_controller
+            )
+        )
     )
 
     keyboard_controller = (
@@ -110,6 +134,9 @@ def main():
             ),
             overlay_service=(
                 overlay_service
+            ),
+            zoom_service=(
+                zoom_service
             )
         )
     )
@@ -130,15 +157,21 @@ def main():
         )
 
     except FileNotFoundError as error:
-
+    
         print("")
         print(
             "ERROR DE DICTADO:"
         )
         print(error)
-
+    
+        multimodal_coordinator.stop()
+    
+        overlay_service.stop()
+    
+        zoom_service.close()
+    
         return
-
+    
     text_input_controller = (
         TextInputController()
     )
@@ -201,6 +234,8 @@ def main():
         voice_service.stop()
 
         multimodal_coordinator.stop()
+
+        zoom_service.close()
 
         overlay_service.stop()
 

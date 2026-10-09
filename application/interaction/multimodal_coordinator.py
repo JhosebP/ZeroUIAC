@@ -26,6 +26,7 @@ class MultimodalCoordinator:
         action_executor,
         mouse_controller,
         overlay_service=None, 
+        zoom_service=None,
         fusion_window=0.08
     ):
         self.event_bus = event_bus
@@ -43,6 +44,10 @@ class MultimodalCoordinator:
 
         self.overlay_service = (
             overlay_service
+        )
+
+        self.zoom_service = (
+            zoom_service
         )
 
         self.fusion_window = (
@@ -167,6 +172,29 @@ class MultimodalCoordinator:
                 self.overlay_service \
                     .toggle_erase()
 
+                return
+
+            if (
+                event.action
+                == SystemAction.ZOOM_IN
+                and self.zoom_service
+                is not None
+            ):
+            
+                self.zoom_service.zoom_in()
+            
+                return
+            
+            
+            if (
+                event.action
+                == SystemAction.ZOOM_OUT
+                and self.zoom_service
+                is not None
+            ):
+            
+                self.zoom_service.zoom_out()
+            
                 return
 
             self.action_executor.execute(

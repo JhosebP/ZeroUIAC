@@ -113,14 +113,14 @@ def test_overlay_commands_are_mapped():
     )
 
 
-def test_zoom_commands_are_pending():
+def test_zoom_commands_are_mapped():
 
     assert (
         VOICE_ACTION_MAP["acercar"]
-        is None
+        == SystemAction.ZOOM_IN
     )
 
     assert (
         VOICE_ACTION_MAP["alejar"]
-        is None
+        == SystemAction.ZOOM_OUT
     )

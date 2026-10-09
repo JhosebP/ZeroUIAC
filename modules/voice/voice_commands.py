@@ -90,8 +90,8 @@ VOICE_ACTION_MAP = {
     # Estos cuatro comandos son reconocidos
     # desde ahora, pero sus funcionalidades
     # corresponden al Sprint 3.
-    "acercar": None,
-    "alejar": None,
+    "acercar": SystemAction.ZOOM_IN,
+    "alejar": SystemAction.ZOOM_OUT,
     "dibujar": SystemAction.DRAW,
     "borrar": SystemAction.ERASE,
 }

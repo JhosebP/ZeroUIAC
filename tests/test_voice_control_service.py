@@ -200,7 +200,7 @@ def test_exit_dictation_resets_command_recognizer():
         .assert_called_once()
 
 
-def test_pending_sprint3_command_is_not_published():
+def test_zoom_in_command_is_published():
 
     (
         service,
@@ -223,4 +223,25 @@ def test_pending_sprint3_command_is_not_published():
     assert result == "acercar"
 
     event_bus.publish \
-        .assert_not_called()
+        .assert_called_once()
+
+    published_event = (
+        event_bus.publish
+        .call_args
+        .args[0]
+    )
+
+    assert (
+        published_event.source
+        == EventSource.VOICE
+    )
+
+    assert (
+        published_event.event_type
+        == EventType.ACTION
+    )
+
+    assert (
+        published_event.action
+        == SystemAction.ZOOM_IN
+    )

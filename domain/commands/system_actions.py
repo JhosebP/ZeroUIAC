@@ -32,3 +32,6 @@ class SystemAction(str, Enum):
     
     DRAW = "draw"
     ERASE = "erase"
+
+    ZOOM_IN = "zoom_in"
+    ZOOM_OUT = "zoom_out"

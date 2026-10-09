@@ -208,3 +208,72 @@ def test_erase_action_controls_overlay():
 
     action_executor.execute \
         .assert_not_called()
+
+def test_zoom_in_action_controls_zoom_service():
+
+    (
+        coordinator,
+        _,
+        _,
+        action_executor,
+        _
+    ) = create_coordinator()
+
+    zoom_service = (
+        MagicMock()
+    )
+
+    coordinator.zoom_service = (
+        zoom_service
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.ZOOM_IN
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    zoom_service.zoom_in \
+        .assert_called_once()
+
+    action_executor.execute \
+        .assert_not_called()
+
+
+def test_zoom_out_action_controls_zoom_service():
+
+    (
+        coordinator,
+        _,
+        _,
+        action_executor,
+        _
+    ) = create_coordinator()
+
+    zoom_service = (
+        MagicMock()
+    )
+
+    coordinator.zoom_service = (
+        zoom_service
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.ZOOM_OUT
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    zoom_service.zoom_out \
+        .assert_called_once()
+
+    action_executor.execute \
+        .assert_not_called()
