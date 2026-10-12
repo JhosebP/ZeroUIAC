@@ -24,6 +24,10 @@ from modules.vision.head_cursor_mapper import (
     HeadCursorMapper
 )
 
+from modules.vision.head_zoom_detector import (
+    HeadZoomDetector
+)
+
 from modules.vision.hand_tracker import (
     HandTracker
 )
@@ -97,6 +101,10 @@ class MultimodalVisionService:
             )
         )
 
+        self.head_zoom_detector = (
+            HeadZoomDetector()
+        )
+
         self.hand_tracker = (
             HandTracker()
         )
@@ -165,6 +173,9 @@ class MultimodalVisionService:
 
             self.head_mapper.reset()
 
+            self.head_zoom_detector.reset()
+
+
             return
 
         height, width = (
@@ -181,6 +192,9 @@ class MultimodalVisionService:
         )
 
         if pose is None:
+
+            self.head_zoom_detector.reset()
+
             return
 
         self.pose_history.append(
@@ -188,6 +202,8 @@ class MultimodalVisionService:
         )
 
         if self.range_calibration:
+            
+            self.head_zoom_detector.reset()
 
             self._process_range_calibration(
                 pose
@@ -196,6 +212,44 @@ class MultimodalVisionService:
             return
 
         if not self.profile.is_calibrated:
+
+            self.head_zoom_detector.reset()
+
+            return
+
+        zoom_action = (
+            self.head_zoom_detector
+            .detect(
+                pitch=pose["pitch"],
+                neutral_pitch=(
+                    self.profile
+                    .neutral_pitch
+                )
+            )
+        )
+
+        if zoom_action is not None:
+
+            self.head_mapper.reset()
+
+            self._publish_head_zoom(
+                zoom_action
+            )
+
+            return
+
+
+        if self.head_zoom_detector.is_active:
+        
+            self.head_mapper.reset()
+
+            return
+
+
+        if self._limb_has_control():
+        
+            self.head_mapper.reset()
+
             return
 
         if self._limb_has_control():
@@ -234,6 +288,47 @@ class MultimodalVisionService:
         self.event_bus.publish(
             event
         )
+
+    def _publish_head_zoom(
+        self,
+        action
+    ):
+
+        if (
+            action
+            == SystemAction.ZOOM_IN
+        ):
+
+            print(
+                "Gesto de cabeza reconocido: "
+                "acercar"
+            )
+
+        elif (
+            action
+            == SystemAction.ZOOM_OUT
+        ):
+
+            print(
+                "Gesto de cabeza reconocido: "
+                "alejar"
+            )
+
+        else:
+
+            return
+
+        event = InteractionEvent(
+            source=EventSource.HEAD,
+            event_type=EventType.ACTION,
+            action=action,
+            confidence=1.0,
+            conflict_key="action"
+        )
+
+        self.event_bus.publish(
+            event
+    )    
 
     def _publish_gesture(
         self,
@@ -511,6 +606,8 @@ class MultimodalVisionService:
             )
 
             self.head_mapper.reset()
+
+            self.head_zoom_detector.reset()
 
             print("")
             print(
