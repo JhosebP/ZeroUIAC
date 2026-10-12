@@ -1,8 +1,8 @@
+import threading
+
 from domain.commands.system_actions import (
     SystemAction
 )
-
-import threading
 
 from domain.events.event_types import (
     EventType
@@ -17,7 +17,61 @@ class MultimodalCoordinator:
     los procesa mediante FusionEngine
     y ejecuta solamente los eventos
     seleccionados.
+
+    También genera retroalimentación
+    visual y auditiva después de
+    ejecutar acciones.
     """
+
+    ACTION_LABELS = {
+        SystemAction.LEFT_CLICK:
+            "Clic",
+
+        SystemAction.RIGHT_CLICK:
+            "Clic derecho",
+
+        SystemAction.DOUBLE_CLICK:
+            "Doble clic",
+
+        SystemAction.START_DRAG:
+            "Arrastrar",
+
+        SystemAction.STOP_DRAG:
+            "Soltar",
+
+        SystemAction.COPY:
+            "Copiar",
+
+        SystemAction.PASTE:
+            "Pegar",
+
+        SystemAction.CUT:
+            "Cortar",
+
+        SystemAction.UNDO:
+            "Deshacer",
+
+        SystemAction.SAVE:
+            "Guardar",
+
+        SystemAction.SELECT_ALL:
+            "Seleccionar todo",
+
+        SystemAction.SWITCH_APP:
+            "Cambiar aplicación",
+
+        SystemAction.NAV_UP:
+            "Arriba",
+
+        SystemAction.NAV_DOWN:
+            "Abajo",
+
+        SystemAction.NAV_LEFT:
+            "Izquierda",
+
+        SystemAction.NAV_RIGHT:
+            "Derecha",
+    }
 
     def __init__(
         self,
@@ -25,11 +79,16 @@ class MultimodalCoordinator:
         fusion_engine,
         action_executor,
         mouse_controller,
-        overlay_service=None, 
+        overlay_service=None,
         zoom_service=None,
+        audio_feedback_service=None,
         fusion_window=0.08
     ):
-        self.event_bus = event_bus
+
+        self.event_bus = (
+            event_bus
+        )
+
         self.fusion_engine = (
             fusion_engine
         )
@@ -50,13 +109,19 @@ class MultimodalCoordinator:
             zoom_service
         )
 
+        self.audio_feedback_service = (
+            audio_feedback_service
+        )
+
         self.fusion_window = (
             fusion_window
         )
 
         self._pending_events = []
 
-        self._lock = threading.RLock()
+        self._lock = (
+            threading.RLock()
+        )
 
         self._timer = None
 
@@ -114,7 +179,9 @@ class MultimodalCoordinator:
 
         resolved_events = (
             self.fusion_engine
-            .process_events(events)
+            .process_events(
+                events
+            )
         )
 
         for event in resolved_events:
@@ -133,6 +200,44 @@ class MultimodalCoordinator:
                     f"{error}"
                 )
 
+    def _show_feedback(
+        self,
+        text
+    ):
+        """
+        Solicita mostrar una confirmación
+        visual mediante el overlay.
+        """
+
+        if (
+            self.overlay_service
+            is None
+        ):
+
+            return
+
+        self.overlay_service \
+            .show_feedback(
+                text
+            )
+
+    def _play_audio_feedback(self):
+        """
+        Reproduce el tono de confirmación
+        cuando el servicio de audio
+        se encuentra disponible.
+        """
+
+        if (
+            self.audio_feedback_service
+            is None
+        ):
+
+            return
+
+        self.audio_feedback_service \
+            .play_success()
+
     def _execute_event(
         self,
         event
@@ -150,6 +255,10 @@ class MultimodalCoordinator:
             if event.action is None:
                 return
 
+            # -----------------------------
+            # DIBUJO
+            # -----------------------------
+
             if (
                 event.action
                 == SystemAction.DRAW
@@ -160,7 +269,32 @@ class MultimodalCoordinator:
                 self.overlay_service \
                     .toggle_draw()
 
+                if (
+                    self.overlay_service
+                    .is_active
+                    and self.overlay_service
+                    .mode
+                    == self.overlay_service
+                    .MODE_DRAW
+                ):
+
+                    self._show_feedback(
+                        "Dibujo activado"
+                    )
+
+                else:
+
+                    self._show_feedback(
+                        "Dibujo desactivado"
+                    )
+
+                self._play_audio_feedback()
+
                 return
+
+            # -----------------------------
+            # BORRADOR
+            # -----------------------------
 
             if (
                 event.action
@@ -172,7 +306,32 @@ class MultimodalCoordinator:
                 self.overlay_service \
                     .toggle_erase()
 
+                if (
+                    self.overlay_service
+                    .is_active
+                    and self.overlay_service
+                    .mode
+                    == self.overlay_service
+                    .MODE_ERASE
+                ):
+
+                    self._show_feedback(
+                        "Borrador activado"
+                    )
+
+                else:
+
+                    self._show_feedback(
+                        "Borrador desactivado"
+                    )
+
+                self._play_audio_feedback()
+
                 return
+
+            # -----------------------------
+            # ZOOM IN
+            # -----------------------------
 
             if (
                 event.action
@@ -180,48 +339,114 @@ class MultimodalCoordinator:
                 and self.zoom_service
                 is not None
             ):
-            
-                self.zoom_service.zoom_in()
-            
+
+                result = (
+                    self.zoom_service
+                    .zoom_in()
+                )
+
+                if result:
+
+                    percentage = int(
+                        self.zoom_service
+                        .current_zoom
+                        * 100
+                    )
+
+                    self._show_feedback(
+                        f"Zoom {percentage}%"
+                    )
+
+                    self._play_audio_feedback()
+
                 return
-            
-            
+
+            # -----------------------------
+            # ZOOM OUT
+            # -----------------------------
+
             if (
                 event.action
                 == SystemAction.ZOOM_OUT
                 and self.zoom_service
                 is not None
             ):
-            
-                self.zoom_service.zoom_out()
-            
+
+                result = (
+                    self.zoom_service
+                    .zoom_out()
+                )
+
+                if result:
+
+                    percentage = int(
+                        self.zoom_service
+                        .current_zoom
+                        * 100
+                    )
+
+                    self._show_feedback(
+                        f"Zoom {percentage}%"
+                    )
+
+                    self._play_audio_feedback()
+
                 return
+
+            # -----------------------------
+            # ACCIONES NORMALES
+            # -----------------------------
 
             self.action_executor.execute(
                 event.action
             )
 
+            label = (
+                self.ACTION_LABELS
+                .get(
+                    event.action
+                )
+            )
+
+            if label is not None:
+
+                self._show_feedback(
+                    label
+                )
+
+            self._play_audio_feedback()
+
             return
+
+        # -----------------------------
+        # MOVIMIENTO DEL CURSOR
+        # -----------------------------
 
         if (
             event.event_type
             == EventType.CURSOR_MOVE
         ):
 
-            mode = event.payload.get(
-                "mode"
+            mode = (
+                event.payload.get(
+                    "mode"
+                )
             )
 
             if mode == "relative":
 
-                dx = event.payload.get(
-                    "dx",
-                    0
+                dx = (
+                    event.payload.get(
+                        "dx",
+                        0
+                    )
                 )
 
-                dy = event.payload.get(
-                    "dy",
-                    0
+                dy = (
+                    event.payload.get(
+                        "dy",
+                        0
+                    )
                 )
 
                 self.mouse.move_relative(
@@ -233,12 +458,16 @@ class MultimodalCoordinator:
 
             if mode == "absolute":
 
-                x = event.payload.get(
-                    "x"
+                x = (
+                    event.payload.get(
+                        "x"
+                    )
                 )
 
-                y = event.payload.get(
-                    "y"
+                y = (
+                    event.payload.get(
+                        "y"
+                    )
                 )
 
                 if (

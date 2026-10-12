@@ -2,7 +2,6 @@ from application.calibration.calibration_service import (
     CalibrationService
 )
 
-from application.interaction import zoom_service
 from application.interaction.voice_control_service import (
     VoiceControlService
 )
@@ -23,6 +22,10 @@ from application.interaction.multimodal_vision_service import (
     MultimodalVisionService
 )
 
+from application.interaction.zoom_service import (
+    ZoomService
+)
+
 from infrastructure.windows.mouse_controller import (
     MouseController
 )
@@ -33,6 +36,14 @@ from infrastructure.windows.keyboard_controller import (
 
 from infrastructure.windows.text_input_controller import (
     TextInputController
+)
+
+from infrastructure.windows.magnification_controller import (
+    MagnificationController
+)
+
+from infrastructure.windows.audio_feedback_service import (
+    AudioFeedbackService
 )
 
 from infrastructure.event_bus.event_bus import (
@@ -55,13 +66,6 @@ from presentation.overlay.annotation_overlay import (
     AnnotationOverlay
 )
 
-from application.interaction.zoom_service import (
-    ZoomService
-)
-
-from infrastructure.windows.magnification_controller import (
-    MagnificationController
-)
 
 def main():
 
@@ -114,7 +118,14 @@ def main():
     overlay_service = (
         AnnotationOverlay()
     )
+
     overlay_service.start()
+
+    audio_feedback_service = (
+        AudioFeedbackService(
+            enabled=True
+        )
+    )
 
     event_bus = (
         EventBus()
@@ -127,8 +138,12 @@ def main():
     multimodal_coordinator = (
         MultimodalCoordinator(
             event_bus=event_bus,
-            fusion_engine=fusion_engine,
-            action_executor=action_executor,
+            fusion_engine=(
+                fusion_engine
+            ),
+            action_executor=(
+                action_executor
+            ),
             mouse_controller=(
                 mouse_controller
             ),
@@ -137,6 +152,9 @@ def main():
             ),
             zoom_service=(
                 zoom_service
+            ),
+            audio_feedback_service=(
+                audio_feedback_service
             )
         )
     )
@@ -157,21 +175,24 @@ def main():
         )
 
     except FileNotFoundError as error:
-    
+
         print("")
         print(
             "ERROR DE DICTADO:"
         )
-        print(error)
-    
+
+        print(
+            error
+        )
+
         multimodal_coordinator.stop()
-    
+
         overlay_service.stop()
-    
+
         zoom_service.close()
-    
+
         return
-    
+
     text_input_controller = (
         TextInputController()
     )

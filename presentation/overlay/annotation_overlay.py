@@ -1,19 +1,26 @@
 import ctypes
+import math
 import threading
+import time
 import tkinter as tk
 
 import pyautogui
-import math
+
 
 class AnnotationOverlay:
     """
     Capa transparente de anotación
     para ZeroUI-AC.
 
-    Permite dibujar y borrar siguiendo
-    la posición actual del cursor.
+    Permite:
 
-    Está diseñada para Windows.
+    - dibujar;
+    - borrar;
+    - mostrar retroalimentación visual;
+    - trabajar sin bloquear las aplicaciones
+      que se encuentran debajo.
+
+    Diseñada para Windows.
     """
 
     MODE_DRAW = "draw"
@@ -24,9 +31,13 @@ class AnnotationOverlay:
         line_width=5,
         eraser_radius=25,
         refresh_ms=16,
-        max_draw_jump=80
+        max_draw_jump=80,
+        feedback_duration=1.5
     ):
-        self.line_width = line_width
+
+        self.line_width = (
+            line_width
+        )
 
         self.eraser_radius = (
             eraser_radius
@@ -38,6 +49,10 @@ class AnnotationOverlay:
 
         self.max_draw_jump = (
             max_draw_jump
+        )
+
+        self.feedback_duration = (
+            feedback_duration
         )
 
         self._active = False
@@ -55,12 +70,22 @@ class AnnotationOverlay:
         )
 
         self._root = None
+
         self._canvas = None
 
         self._last_point = None
 
         self._clear_version = 0
+
         self._processed_clear_version = 0
+
+        self._feedback_text = None
+
+        self._feedback_until = 0.0
+
+        self._feedback_version = 0
+
+        self._processed_feedback_version = 0
 
     @property
     def is_active(self):
@@ -76,9 +101,17 @@ class AnnotationOverlay:
 
             return self._mode
 
+    @property
+    def feedback_text(self):
+
+        with self._lock:
+
+            return self._feedback_text
+
     def toggle_draw(self):
         """
-        Activa/desactiva el modo dibujo.
+        Activa o desactiva
+        el modo dibujo.
         """
 
         with self._lock:
@@ -90,6 +123,7 @@ class AnnotationOverlay:
             ):
 
                 self._active = False
+
                 self._mode = None
 
             else:
@@ -104,7 +138,8 @@ class AnnotationOverlay:
 
     def toggle_erase(self):
         """
-        Activa/desactiva el borrador.
+        Activa o desactiva
+        el modo borrador.
         """
 
         with self._lock:
@@ -116,6 +151,7 @@ class AnnotationOverlay:
             ):
 
                 self._active = False
+
                 self._mode = None
 
             else:
@@ -130,25 +166,61 @@ class AnnotationOverlay:
 
     def deactivate(self):
         """
-        Oculta el overlay.
+        Desactiva dibujo y borrado.
         """
 
         with self._lock:
 
             self._active = False
+
             self._mode = None
 
             self._last_point = None
 
     def clear(self):
         """
-        Solicita borrar todas
-        las anotaciones.
+        Solicita eliminar todas
+        las anotaciones dibujadas.
         """
 
         with self._lock:
 
             self._clear_version += 1
+
+    def show_feedback(
+        self,
+        text,
+        duration=None
+    ):
+        """
+        Solicita mostrar una confirmación
+        visual temporal.
+
+        No manipula Tkinter directamente
+        desde el hilo que genera el evento.
+        """
+
+        if not text:
+            return
+
+        if duration is None:
+
+            duration = (
+                self.feedback_duration
+            )
+
+        with self._lock:
+
+            self._feedback_text = (
+                str(text)
+            )
+
+            self._feedback_until = (
+                time.monotonic()
+                + float(duration)
+            )
+
+            self._feedback_version += 1
 
     def start(self):
         """
@@ -160,6 +232,7 @@ class AnnotationOverlay:
             self._thread is not None
             and self._thread.is_alive()
         ):
+
             return
 
         self._stop_event.clear()
@@ -167,6 +240,7 @@ class AnnotationOverlay:
         self._thread = (
             threading.Thread(
                 target=self._run,
+                name="ZeroUI-Overlay",
                 daemon=False
             )
         )
@@ -224,10 +298,13 @@ class AnnotationOverlay:
             parent = (
                 ctypes.windll
                 .user32
-                .GetParent(hwnd)
+                .GetParent(
+                    hwnd
+                )
             )
 
             if parent:
+
                 hwnd = parent
 
             GWL_EXSTYLE = -20
@@ -294,9 +371,12 @@ class AnnotationOverlay:
                     .SetProcessDPIAware()
 
             except Exception:
+
                 pass
 
-            self._root = tk.Tk()
+            self._root = (
+                tk.Tk()
+            )
 
             self._root.title(
                 "ZeroUI-AC Overlay"
@@ -341,15 +421,22 @@ class AnnotationOverlay:
                 )
 
             except tk.TclError:
+
                 pass
 
-            self._canvas = tk.Canvas(
-                self._root,
-                width=screen_width,
-                height=screen_height,
-                bg="black",
-                highlightthickness=0,
-                borderwidth=0
+            self._canvas = (
+                tk.Canvas(
+                    self._root,
+                    width=(
+                        screen_width
+                    ),
+                    height=(
+                        screen_height
+                    ),
+                    bg="black",
+                    highlightthickness=0,
+                    borderwidth=0
+                )
             )
 
             self._canvas.pack(
@@ -380,11 +467,17 @@ class AnnotationOverlay:
         finally:
 
             self._canvas = None
+
             self._root = None
 
     def _tick(self):
         """
-        Actualiza dibujo/borrado.
+        Actualiza:
+
+        - dibujo;
+        - borrado;
+        - limpieza;
+        - retroalimentación visual.
         """
 
         if self._stop_event.is_set():
@@ -394,21 +487,46 @@ class AnnotationOverlay:
                 try:
 
                     self._root.quit()
+
                     self._root.destroy()
 
                 except tk.TclError:
+
                     pass
 
             return
 
         with self._lock:
 
-            active = self._active
-            mode = self._mode
+            active = (
+                self._active
+            )
+
+            mode = (
+                self._mode
+            )
 
             clear_version = (
                 self._clear_version
             )
+
+            feedback_text = (
+                self._feedback_text
+            )
+
+            feedback_until = (
+                self._feedback_until
+            )
+
+            feedback_version = (
+                self._feedback_version
+            )
+
+        feedback_visible = (
+            feedback_text is not None
+            and time.monotonic()
+            < feedback_until
+        )
 
         if (
             clear_version
@@ -418,19 +536,52 @@ class AnnotationOverlay:
             if self._canvas is not None:
 
                 self._canvas.delete(
-                    "all"
+                    "annotation"
                 )
 
             self._processed_clear_version = (
                 clear_version
             )
 
-        if not active:
+        if self._canvas is not None:
+
+          self._set_annotations_visible(
+              active
+          )    
+
+        if feedback_visible:
+
+            if (
+                feedback_version
+                != self._processed_feedback_version
+            ):
+
+                self._render_feedback(
+                    feedback_text
+                )
+
+                self._processed_feedback_version = (
+                    feedback_version
+                )
+
+        else:
+
+            if self._canvas is not None:
+
+                self._canvas.delete(
+                    "feedback"
+                )
+
+        should_show_overlay = (
+            active
+            or feedback_visible
+        )
+
+        if not should_show_overlay:
 
             if (
                 self._root is not None
-                and self._root
-                .state()
+                and self._root.state()
                 != "withdrawn"
             ):
 
@@ -442,8 +593,7 @@ class AnnotationOverlay:
 
             if (
                 self._root is not None
-                and self._root
-                .state()
+                and self._root.state()
                 == "withdrawn"
             ):
 
@@ -451,25 +601,52 @@ class AnnotationOverlay:
 
                 self._root.lift()
 
-            position = (
-                pyautogui.position()
-            )
+            if active:
 
-            x = position.x
-            y = position.y
-
-            if mode == self.MODE_DRAW:
-
-                self._draw(
-                    x,
-                    y
+                position = (
+                    pyautogui.position()
                 )
 
-            elif mode == self.MODE_ERASE:
+                x = (
+                    position.x
+                )
 
-                self._erase(
-                    x,
-                    y
+                y = (
+                    position.y
+                )
+
+                if (
+                    mode
+                    == self.MODE_DRAW
+                ):
+
+                    self._draw(
+                        x,
+                        y
+                    )
+
+                elif (
+                    mode
+                    == self.MODE_ERASE
+                ):
+
+                    self._erase(
+                        x,
+                        y
+                    )
+
+            else:
+
+                self._last_point = None
+
+            if (
+                feedback_visible
+                and self._canvas
+                is not None
+            ):
+
+                self._canvas.tag_raise(
+                    "feedback"
                 )
 
         if self._root is not None:
@@ -479,6 +656,105 @@ class AnnotationOverlay:
                 self._tick
             )
 
+    def _set_annotations_visible(
+        self,
+        visible
+    ):
+        """
+        Muestra u oculta las anotaciones
+        sin eliminarlas del Canvas.
+        """
+
+        if self._canvas is None:
+            return
+
+        state = (
+            "normal"
+            if visible
+            else "hidden"
+        )
+
+        self._canvas.itemconfigure(
+            "annotation",
+            state=state
+        )
+
+    def _render_feedback(
+        self,
+        text
+    ):
+        """
+        Dibuja la notificación visual
+        en la esquina superior derecha.
+        """
+
+        if (
+            self._canvas is None
+            or self._root is None
+        ):
+
+            return
+
+        self._canvas.delete(
+            "feedback"
+        )
+
+        screen_width = (
+            self._root
+            .winfo_screenwidth()
+        )
+
+        right = (
+            screen_width
+            - 20
+        )
+
+        left = (
+            right
+            - 320
+        )
+
+        top = 25
+
+        bottom = 85
+
+        self._canvas.create_rectangle(
+            left,
+            top,
+            right,
+            bottom,
+            fill="#245C45",
+            outline="",
+            tags=(
+                "feedback",
+            )
+        )
+
+        self._canvas.create_text(
+            left + 20,
+            (
+                top
+                + bottom
+            ) / 2,
+            text=(
+                f"✓ {text}"
+            ),
+            anchor="w",
+            fill="white",
+            font=(
+                "Segoe UI",
+                14,
+                "bold"
+            ),
+            tags=(
+                "feedback",
+            )
+        )
+
+        self._canvas.tag_raise(
+            "feedback"
+        )
+
     def _draw(
         self,
         x,
@@ -487,11 +763,15 @@ class AnnotationOverlay:
         """
         Dibuja siguiendo el cursor.
 
-        Si existe un salto demasiado grande,
-        interrumpe el trazo para evitar
-        líneas producidas por pérdida de
-        seguimiento.
+        Si existe un salto demasiado
+        grande, interrumpe el trazo para
+        evitar líneas producidas por
+        pérdida temporal de seguimiento.
         """
+
+        if self._canvas is None:
+
+            return
 
         if self._last_point is None:
 
@@ -507,16 +787,20 @@ class AnnotationOverlay:
         )
 
         delta_x = (
-            x - previous_x
+            x
+            - previous_x
         )
 
         delta_y = (
-            y - previous_y
+            y
+            - previous_y
         )
 
-        distance = math.sqrt(
-            delta_x ** 2
-            + delta_y ** 2
+        distance = (
+            math.sqrt(
+                delta_x ** 2
+                + delta_y ** 2
+            )
         )
 
         if (
@@ -535,6 +819,7 @@ class AnnotationOverlay:
             previous_x == x
             and previous_y == y
         ):
+
             return
 
         self._canvas.create_line(
@@ -543,50 +828,14 @@ class AnnotationOverlay:
             x,
             y,
             fill="red",
-            width=self.line_width,
+            width=(
+                self.line_width
+            ),
             capstyle=tk.ROUND,
-            smooth=True
-        )
-
-        self._last_point = (
-            x,
-            y
-        )
-
-    
-
-        """
-        Dibuja siguiendo el cursor.
-        """
-
-        if self._last_point is None:
-
-            self._last_point = (
-                x,
-                y
+            smooth=True,
+            tags=(
+                "annotation",
             )
-
-            return
-
-        previous_x, previous_y = (
-            self._last_point
-        )
-
-        if (
-            previous_x == x
-            and previous_y == y
-        ):
-            return
-
-        self._canvas.create_line(
-            previous_x,
-            previous_y,
-            x,
-            y,
-            fill="red",
-            width=self.line_width,
-            capstyle=tk.ROUND,
-            smooth=True
         )
 
         self._last_point = (
@@ -600,9 +849,13 @@ class AnnotationOverlay:
         y
     ):
         """
-        Elimina trazos cercanos
-        a la posición del cursor.
+        Elimina únicamente trazos
+        de anotación cercanos al cursor.
         """
+
+        if self._canvas is None:
+
+            return
 
         radius = (
             self.eraser_radius
@@ -620,18 +873,30 @@ class AnnotationOverlay:
 
         for item in items:
 
-            self._canvas.delete(
-                item
+            tags = (
+                self._canvas
+                .gettags(
+                    item
+                )
             )
+
+            if (
+                "annotation"
+                in tags
+            ):
+
+                self._canvas.delete(
+                    item
+                )
 
         self._last_point = None
 
     def break_stroke(self):
         """
-        Interrumpe el trazo actual sin
-        desactivar el modo dibujo.
+        Interrumpe el trazo actual
+        sin desactivar el modo dibujo.
         """
-    
+
         with self._lock:
-        
+
             self._last_point = None

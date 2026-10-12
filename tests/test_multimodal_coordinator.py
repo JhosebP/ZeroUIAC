@@ -277,3 +277,195 @@ def test_zoom_out_action_controls_zoom_service():
 
     action_executor.execute \
         .assert_not_called()
+
+def test_normal_action_shows_feedback():
+
+    event_bus = MagicMock()
+
+    fusion_engine = MagicMock()
+
+    action_executor = MagicMock()
+
+    mouse = MagicMock()
+
+    overlay = MagicMock()
+
+    coordinator = (
+        MultimodalCoordinator(
+            event_bus=event_bus,
+            fusion_engine=(
+                fusion_engine
+            ),
+            action_executor=(
+                action_executor
+            ),
+            mouse_controller=mouse,
+            overlay_service=overlay
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    action_executor.execute \
+        .assert_called_once_with(
+            SystemAction.COPY
+        )
+
+    overlay.show_feedback \
+        .assert_called_once_with(
+            "Copiar"
+        )
+
+
+def test_zoom_shows_visual_feedback():
+
+    event_bus = MagicMock()
+
+    fusion_engine = MagicMock()
+
+    action_executor = MagicMock()
+
+    mouse = MagicMock()
+
+    overlay = MagicMock()
+
+    zoom_service = MagicMock()
+
+    zoom_service.zoom_in \
+        .return_value = True
+
+    zoom_service.current_zoom = (
+        1.25
+    )
+
+    coordinator = (
+        MultimodalCoordinator(
+            event_bus=event_bus,
+            fusion_engine=(
+                fusion_engine
+            ),
+            action_executor=(
+                action_executor
+            ),
+            mouse_controller=mouse,
+            overlay_service=overlay,
+            zoom_service=(
+                zoom_service
+            )
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.ZOOM_IN
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    overlay.show_feedback \
+        .assert_called_once_with(
+            "Zoom 125%"
+        )
+
+def test_normal_action_plays_audio_feedback():
+
+    event_bus = MagicMock()
+
+    fusion_engine = MagicMock()
+
+    action_executor = MagicMock()
+
+    mouse = MagicMock()
+
+    overlay = MagicMock()
+
+    audio_feedback = MagicMock()
+
+    coordinator = (
+        MultimodalCoordinator(
+            event_bus=event_bus,
+            fusion_engine=(
+                fusion_engine
+            ),
+            action_executor=(
+                action_executor
+            ),
+            mouse_controller=mouse,
+            overlay_service=overlay,
+            audio_feedback_service=(
+                audio_feedback
+            )
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    audio_feedback \
+        .play_success \
+        .assert_called_once()
+
+
+def test_cursor_movement_does_not_play_audio():
+
+    event_bus = MagicMock()
+
+    fusion_engine = MagicMock()
+
+    action_executor = MagicMock()
+
+    mouse = MagicMock()
+
+    audio_feedback = MagicMock()
+
+    coordinator = (
+        MultimodalCoordinator(
+            event_bus=event_bus,
+            fusion_engine=(
+                fusion_engine
+            ),
+            action_executor=(
+                action_executor
+            ),
+            mouse_controller=mouse,
+            audio_feedback_service=(
+                audio_feedback
+            )
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.HEAD,
+        event_type=EventType.CURSOR_MOVE,
+        payload={
+            "mode": "relative",
+            "dx": 5,
+            "dy": 3
+        }
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    audio_feedback \
+        .play_success \
+        .assert_not_called()
