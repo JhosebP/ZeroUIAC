@@ -15,10 +15,12 @@ def test_exactly_twenty_commands():
 
 def test_all_commands_are_mapped():
 
-    assert len(VOICE_ACTION_MAP) == 20
-
     for command in VOICE_COMMANDS:
-        assert command in VOICE_ACTION_MAP
+
+        assert (
+            command
+            in VOICE_ACTION_MAP
+        )
 
 
 def test_click():
@@ -107,10 +109,36 @@ def test_overlay_commands_are_mapped():
         == SystemAction.DRAW
     )
 
+def test_delete_command_is_mapped():
+
     assert (
-        VOICE_ACTION_MAP["borrar"]
-        == SystemAction.ERASE
+        VOICE_ACTION_MAP["eliminar"]
+        == SystemAction.DELETE
     )
+
+
+def test_eraser_control_commands_are_mapped():
+
+    assert (
+        VOICE_ACTION_MAP[
+            "activar borrador"
+        ]
+        == SystemAction.ERASER_ON
+    )
+
+    assert (
+        VOICE_ACTION_MAP[
+            "desactivar borrador"
+        ]
+        == SystemAction.ERASER_OFF
+    )
+
+
+def test_delete_replaces_old_borrar_command():
+
+    assert "eliminar" in VOICE_COMMANDS
+    assert "borrar" not in VOICE_COMMANDS
+    assert len(VOICE_COMMANDS) == 20
 
 
 def test_zoom_commands_are_mapped():

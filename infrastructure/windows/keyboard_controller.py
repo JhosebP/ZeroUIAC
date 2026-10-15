@@ -47,6 +47,16 @@ class KeyboardController:
             "a"
         )
 
+    def delete_selected(self):
+        """
+        Elimina el elemento, texto o contenido
+        seleccionado mediante la tecla Delete.
+        """
+    
+        pyautogui.press(
+            "delete"
+        )
+
     def switch_app(self):
         """
         Abre la Vista de tareas de Windows.

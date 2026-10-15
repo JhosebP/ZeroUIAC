@@ -72,6 +72,10 @@ class ActionExecutor:
             self.keyboard.select_all()
             return True
 
+        if action == SystemAction.DELETE:
+            self.keyboard.delete_selected()
+            return True
+
         if action == SystemAction.SWITCH_APP:
             self.keyboard.switch_app()
             return True

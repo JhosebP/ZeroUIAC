@@ -18,7 +18,9 @@ from domain.events.interaction_event import (
 )
 
 
-def create_coordinator():
+def create_coordinator(
+        session_manager=None
+):
 
     event_bus = MagicMock()
     fusion_engine = MagicMock()
@@ -29,7 +31,10 @@ def create_coordinator():
         event_bus=event_bus,
         fusion_engine=fusion_engine,
         action_executor=action_executor,
-        mouse_controller=mouse
+        mouse_controller=mouse,
+        session_manager=(
+            session_manager
+        )
     )
 
     return (
@@ -564,3 +569,241 @@ def test_voice_error_status_shows_red_feedback():
         .assert_called_once_with(
             "Comando no reconocido"
         )
+
+def test_resolved_event_is_recorded_in_session():
+
+    session_manager = (
+        MagicMock()
+    )
+
+    (
+        coordinator,
+        _,
+        fusion_engine,
+        action_executor,
+        _
+    ) = create_coordinator(
+        session_manager=(
+            session_manager
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    fusion_engine.process_events \
+        .return_value = [
+            event
+        ]
+
+    coordinator._pending_events = [
+        event
+    ]
+
+    coordinator._flush()
+
+    session_manager.record_event \
+        .assert_called_once_with(
+            event
+        )
+
+    action_executor.execute \
+        .assert_called_once_with(
+            SystemAction.COPY
+        )
+
+
+def test_discarded_event_is_not_recorded():
+
+    session_manager = (
+        MagicMock()
+    )
+
+    (
+        coordinator,
+        _,
+        fusion_engine,
+        _,
+        _
+    ) = create_coordinator(
+        session_manager=(
+            session_manager
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    fusion_engine.process_events \
+        .return_value = []
+
+    coordinator._pending_events = [
+        event
+    ]
+
+    coordinator._flush()
+
+    session_manager.record_event \
+        .assert_not_called()
+
+
+def test_metrics_failure_does_not_stop_action():
+
+    session_manager = (
+        MagicMock()
+    )
+
+    session_manager.record_event \
+        .side_effect = RuntimeError(
+            "Error de métricas"
+        )
+
+    (
+        coordinator,
+        _,
+        fusion_engine,
+        action_executor,
+        _
+    ) = create_coordinator(
+        session_manager=(
+            session_manager
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    fusion_engine.process_events \
+        .return_value = [
+            event
+        ]
+
+    coordinator._pending_events = [
+        event
+    ]
+
+    coordinator._flush()
+
+    action_executor.execute \
+        .assert_called_once_with(
+            SystemAction.COPY
+        )
+
+def test_eraser_on_activates_overlay():
+
+    (
+        coordinator,
+        _,
+        _,
+        action_executor,
+        _
+    ) = create_coordinator()
+
+    overlay = MagicMock()
+
+    overlay.is_active = False
+    overlay.mode = None
+    overlay.MODE_ERASE = "erase"
+
+    coordinator.overlay_service = (
+        overlay
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.ERASER_ON
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    overlay.toggle_erase \
+        .assert_called_once()
+
+    action_executor.execute \
+        .assert_not_called()
+
+
+def test_eraser_on_does_not_toggle_when_already_active():
+
+    (
+        coordinator,
+        _,
+        _,
+        action_executor,
+        _
+    ) = create_coordinator()
+
+    overlay = MagicMock()
+
+    overlay.is_active = True
+    overlay.mode = "erase"
+    overlay.MODE_ERASE = "erase"
+
+    coordinator.overlay_service = (
+        overlay
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.ERASER_ON
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    overlay.toggle_erase \
+        .assert_not_called()
+
+    action_executor.execute \
+        .assert_not_called()
+
+
+def test_eraser_off_deactivates_overlay():
+
+    (
+        coordinator,
+        _,
+        _,
+        action_executor,
+        _
+    ) = create_coordinator()
+
+    overlay = MagicMock()
+
+    overlay.is_active = True
+    overlay.mode = "erase"
+    overlay.MODE_ERASE = "erase"
+
+    coordinator.overlay_service = (
+        overlay
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.ERASER_OFF
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    overlay.toggle_erase \
+        .assert_called_once()
+
+    action_executor.execute \
+        .assert_not_called()

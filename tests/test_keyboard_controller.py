@@ -125,3 +125,22 @@ def test_navigation_right():
         mock_press.assert_called_once_with(
             "right"
         )
+
+def test_delete_selected():
+
+    controller = (
+        KeyboardController()
+    )
+
+    with patch(
+        "infrastructure.windows."
+        "keyboard_controller."
+        "pyautogui.press"
+    ) as mock_press:
+
+        controller.delete_selected()
+
+        mock_press \
+            .assert_called_once_with(
+                "delete"
+            )

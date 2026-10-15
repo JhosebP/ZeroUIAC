@@ -8,6 +8,8 @@ from domain.commands.system_actions import (
     SystemAction
 )
 
+from unittest.mock import MagicMock
+
 
 def create_executor():
 
@@ -180,3 +182,22 @@ def test_switch_app():
     )
 
     keyboard.switch_app.assert_called_once()
+
+def test_delete():
+
+    mouse = MagicMock()
+    keyboard = MagicMock()
+
+    executor = ActionExecutor(
+        mouse,
+        keyboard
+    )
+
+    result = executor.execute(
+        SystemAction.DELETE
+    )
+
+    assert result is True
+
+    keyboard.delete_selected \
+        .assert_called_once()

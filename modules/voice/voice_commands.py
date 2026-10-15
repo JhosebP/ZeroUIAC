@@ -23,15 +23,16 @@ VOICE_COMMANDS = [
     "acercar",
     "alejar",
     "dibujar",
-    "borrar"
+    "eliminar"
 ]
 
 VOICE_MODE_COMMANDS = [
     "activar dictado",
     "activar zoom",
-    "desactivar zoom"
+    "desactivar zoom",
+    "activar borrador",
+    "desactivar borrador"
 ]
-
 
 VOICE_GRAMMAR = (
     VOICE_COMMANDS
@@ -95,5 +96,11 @@ VOICE_ACTION_MAP = {
     "acercar": SystemAction.ZOOM_IN,
     "alejar": SystemAction.ZOOM_OUT,
     "dibujar": SystemAction.DRAW,
-    "borrar": SystemAction.ERASE,
+    "eliminar": SystemAction.DELETE,
+    
+    "activar borrador":
+        SystemAction.ERASER_ON,
+    
+    "desactivar borrador":
+        SystemAction.ERASER_OFF,
 }

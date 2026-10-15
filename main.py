@@ -54,6 +54,10 @@ from modules.multimodal.fusion_engine import (
     FusionEngine
 )
 
+from modules.adaptation.session_manager import (
+    SessionManager
+)
+
 from modules.voice.voice_mode import (
     VoiceModeManager
 )
@@ -70,13 +74,131 @@ from application.interaction.zoom_mode_manager import (
     ZoomModeManager
 )
 
+def print_session_summary(
+    summary
+):
+    """
+    Muestra un resumen temporal de
+    la sesión actual.
+
+    La persistencia JSON se implementará
+    posteriormente.
+    """
+
+    if summary is None:
+        return
+
+    metrics = (
+        summary.get(
+            "metrics",
+            {}
+        )
+    )
+
+    source_counts = (
+        metrics.get(
+            "source_counts",
+            {}
+        )
+    )
+
+    duration = (
+        metrics.get(
+            "duration_seconds",
+            0.0
+        )
+    )
+
+    error_rate = (
+        metrics.get(
+            "error_rate",
+            0.0
+        )
+        * 100
+    )
+
+    print("")
+    print("==============================")
+    print("       RESUMEN DE SESION")
+    print("==============================")
+
+    print(
+        "ID: "
+        f"{summary.get('session_id')}"
+    )
+
+    print(
+        "Duracion: "
+        f"{duration:.1f} segundos"
+    )
+
+    print(
+        "Eventos: "
+        f"{metrics.get('total_events', 0)}"
+    )
+
+    print(
+        "Acciones: "
+        f"{metrics.get('action_events', 0)}"
+    )
+
+    print(
+        "Movimientos de cursor: "
+        f"{metrics.get('cursor_events', 0)}"
+    )
+
+    print(
+        "Errores: "
+        f"{metrics.get('error_events', 0)}"
+    )
+
+    print(
+        "Tasa de error: "
+        f"{error_rate:.2f}%"
+    )
+
+    print(
+        "Cambios de canal: "
+        f"{metrics.get('channel_switches', 0)}"
+    )
+
+    print("")
+    print("EVENTOS POR CANAL")
+
+    print(
+        "Voz: "
+        f"{source_counts.get('voice', 0)}"
+    )
+
+    print(
+        "Cabeza: "
+        f"{source_counts.get('head', 0)}"
+    )
+
+    print(
+        "Extremidad: "
+        f"{source_counts.get('limb', 0)}"
+    )
+
+    print(
+        "Gestos: "
+        f"{source_counts.get('gesture', 0)}"
+    )
+
+    print(
+        "Sistema: "
+        f"{source_counts.get('system', 0)}"
+    )
+
+    print("==============================")
+    print("")
 
 def main():
 
     print("")
     print("==============================")
     print("          ZEROUI-AC")
-    print("          SPRINT 3")
+    print("          SPRINT 4")
     print("==============================")
     print("")
 
@@ -139,6 +261,10 @@ def main():
         FusionEngine()
     )
 
+    session_manager = (
+        SessionManager()
+    )
+
     multimodal_coordinator = (
         MultimodalCoordinator(
             event_bus=event_bus,
@@ -159,6 +285,9 @@ def main():
             ),
             audio_feedback_service=(
                 audio_feedback_service
+            ),
+            session_manager=(
+                session_manager
             )
         )
     )
@@ -250,6 +379,18 @@ def main():
         )
     )
 
+    session_id = (
+        session_manager
+        .start_session()
+    )
+
+    print("")
+    print(
+        "Sesion iniciada: "
+        f"{session_id}"
+    )
+    print("")
+
     try:
 
         voice_service.start()
@@ -267,13 +408,22 @@ def main():
     finally:
 
         voice_service.stop()
-
+    
         multimodal_coordinator.stop()
-
+    
+        session_summary = (
+            session_manager
+            .end_session()
+        )
+    
+        print_session_summary(
+            session_summary
+        )
+    
         zoom_service.close()
-
+    
         overlay_service.stop()
-
+    
         print("")
         print(
             "ZeroUI-AC finalizado."

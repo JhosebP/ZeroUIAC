@@ -57,6 +57,9 @@ class MultimodalCoordinator:
         SystemAction.SELECT_ALL:
             "Seleccionar todo",
 
+        SystemAction.DELETE:
+            "Eliminar",
+
         SystemAction.SWITCH_APP:
             "Cambiar aplicación",
 
@@ -82,6 +85,7 @@ class MultimodalCoordinator:
         overlay_service=None,
         zoom_service=None,
         audio_feedback_service=None,
+        session_manager=None,
         fusion_window=0.08
     ):
 
@@ -111,6 +115,10 @@ class MultimodalCoordinator:
 
         self.audio_feedback_service = (
             audio_feedback_service
+        )
+
+        self.session_manager = (
+            session_manager
         )
 
         self.fusion_window = (
@@ -157,6 +165,35 @@ class MultimodalCoordinator:
 
                 self._timer.start()
 
+    def _record_session_event(
+        self,
+        event
+    ):
+        """
+        Registra únicamente eventos que
+        ya fueron aceptados por FusionEngine.
+
+        Un fallo en las métricas nunca debe
+        interrumpir la interacción principal.
+        """
+
+        if self.session_manager is None:
+            return
+
+        try:
+
+            self.session_manager.record_event(
+                event
+            )
+
+        except Exception as error:
+
+            print(
+                "ERROR METRICAS DE SESION: "
+                f"{type(error).__name__}: "
+                f"{error}"
+            )
+
     def _flush(self):
         """
         Procesa conjuntamente los eventos
@@ -185,6 +222,10 @@ class MultimodalCoordinator:
         )
 
         for event in resolved_events:
+
+            self._record_session_event(
+                event
+            )
 
             try:
 
@@ -315,6 +356,71 @@ class MultimodalCoordinator:
 
                 self._play_audio_feedback()
 
+                return
+
+            # -----------------------------
+            # ACTIVAR BORRADOR
+            # -----------------------------
+            
+            if (
+                event.action
+                == SystemAction.ERASER_ON
+            ):
+            
+                if self.overlay_service is None:
+                
+                    self._show_error_feedback(
+                        "Borrador no disponible"
+                    )
+            
+                    return
+            
+                if not (
+                    self.overlay_service.is_active
+                    and self.overlay_service.mode
+                    == self.overlay_service.MODE_ERASE
+                ):
+            
+                    self.overlay_service \
+                        .toggle_erase()
+            
+                self._show_feedback(
+                    "Borrador activado"
+                )
+            
+                self._play_audio_feedback()
+            
+                return
+            
+            
+            # -----------------------------
+            # DESACTIVAR BORRADOR
+            # -----------------------------
+            
+            if (
+                event.action
+                == SystemAction.ERASER_OFF
+            ):
+            
+                if self.overlay_service is None:
+                
+                    return
+            
+                if (
+                    self.overlay_service.is_active
+                    and self.overlay_service.mode
+                    == self.overlay_service.MODE_ERASE
+                ):
+            
+                    self.overlay_service \
+                        .toggle_erase()
+            
+                self._show_feedback(
+                    "Borrador desactivado"
+                )
+            
+                self._play_audio_feedback()
+            
                 return
 
             # -----------------------------

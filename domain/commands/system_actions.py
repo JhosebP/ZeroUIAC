@@ -22,6 +22,7 @@ class SystemAction(str, Enum):
     UNDO = "undo"
     SAVE = "save"
     SELECT_ALL = "select_all"
+    DELETE = "delete"
     SWITCH_APP = "switch_app"
 
     # Navegación
@@ -32,6 +33,9 @@ class SystemAction(str, Enum):
     
     DRAW = "draw"
     ERASE = "erase"
+
+    ERASER_ON = "eraser_on"
+    ERASER_OFF = "eraser_off"
 
     ZOOM_IN = "zoom_in"
     ZOOM_OUT = "zoom_out"
