@@ -101,3 +101,60 @@ def test_default_feedback_duration_is_1_5_seconds():
         overlay.feedback_duration
         == 1.5
     )
+
+def test_error_feedback_is_marked_as_error():
+
+    overlay = (
+        AnnotationOverlay()
+    )
+
+    overlay.show_error_feedback(
+        "Comando no reconocido"
+    )
+
+    assert (
+        overlay.feedback_text
+        == "Comando no reconocido"
+    )
+
+    assert (
+        overlay.feedback_type
+        == "error"
+    )
+
+def test_screen_to_canvas_uses_virtual_origin():
+
+    overlay = AnnotationOverlay()
+
+    overlay._virtual_left = -1920
+    overlay._virtual_top = -200
+
+    x, y = (
+        overlay._screen_to_canvas(
+            -1000,
+            300
+        )
+    )
+
+    assert x == 920
+    assert y == 500
+
+
+def test_virtual_geometry_supports_negative_origin():
+
+    overlay = AnnotationOverlay()
+
+    overlay._virtual_left = -1920
+    overlay._virtual_top = -200
+
+    overlay._virtual_width = 3840
+    overlay._virtual_height = 1280
+
+    geometry = (
+        overlay._build_virtual_geometry()
+    )
+
+    assert (
+        geometry
+        == "3840x1280-1920-200"
+    )  

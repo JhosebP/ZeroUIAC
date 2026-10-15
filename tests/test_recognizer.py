@@ -145,6 +145,11 @@ def test_unknown_phrase_is_rejected(
 
     assert result is None
 
+    assert (
+        recognizer.last_status
+        == VoiceRecognizer.STATUS_UNKNOWN
+    )
+
 def test_reset_recognizer():
 
     recognizer = VoiceRecognizer.__new__(
@@ -157,3 +162,47 @@ def test_reset_recognizer():
 
     recognizer.recognizer.Reset \
         .assert_called_once()
+
+@patch(
+    "modules.voice.recognizer."
+    "Path.exists",
+    return_value=True
+)
+@patch(
+    "modules.voice.recognizer.Model"
+)
+@patch(
+    "modules.voice.recognizer."
+    "KaldiRecognizer"
+)
+def test_partial_audio_is_not_an_error(
+    mock_kaldi,
+    mock_model,
+    mock_exists
+):
+
+    fake_recognizer = MagicMock()
+
+    mock_kaldi.return_value = (
+        fake_recognizer
+    )
+
+    fake_recognizer.AcceptWaveform \
+        .return_value = False
+
+    recognizer = (
+        VoiceRecognizer()
+    )
+
+    result = (
+        recognizer.process_audio(
+            b"audio"
+        )
+    )
+
+    assert result is None
+
+    assert (
+        recognizer.last_status
+        == VoiceRecognizer.STATUS_PARTIAL
+    )

@@ -27,7 +27,9 @@ VOICE_COMMANDS = [
 ]
 
 VOICE_MODE_COMMANDS = [
-    "activar dictado"
+    "activar dictado",
+    "activar zoom",
+    "desactivar zoom"
 ]
 
 

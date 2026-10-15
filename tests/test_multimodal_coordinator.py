@@ -469,3 +469,98 @@ def test_cursor_movement_does_not_play_audio():
     audio_feedback \
         .play_success \
         .assert_not_called()
+
+def test_execution_error_shows_error_feedback():
+
+    event_bus = MagicMock()
+
+    fusion_engine = MagicMock()
+
+    action_executor = MagicMock()
+
+    mouse = MagicMock()
+
+    overlay = MagicMock()
+
+    coordinator = (
+        MultimodalCoordinator(
+            event_bus=event_bus,
+            fusion_engine=(
+                fusion_engine
+            ),
+            action_executor=(
+                action_executor
+            ),
+            mouse_controller=mouse,
+            overlay_service=overlay
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    fusion_engine.process_events \
+        .return_value = [
+            event
+        ]
+
+    action_executor.execute \
+        .side_effect = RuntimeError(
+            "Error de prueba"
+        )
+
+    coordinator._pending_events = [
+        event
+    ]
+
+    coordinator._flush()
+
+    overlay.show_error_feedback \
+        .assert_called_once_with(
+            "No se pudo ejecutar la acción"
+        )
+
+def test_voice_error_status_shows_red_feedback():
+
+    event_bus = MagicMock()
+    fusion_engine = MagicMock()
+    action_executor = MagicMock()
+    mouse = MagicMock()
+    overlay = MagicMock()
+
+    coordinator = (
+        MultimodalCoordinator(
+            event_bus=event_bus,
+            fusion_engine=(
+                fusion_engine
+            ),
+            action_executor=(
+                action_executor
+            ),
+            mouse_controller=mouse,
+            overlay_service=overlay
+        )
+    )
+
+    event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.STATUS,
+        payload={
+            "level": "error",
+            "message": (
+                "Comando no reconocido"
+            )
+        }
+    )
+
+    coordinator._execute_event(
+        event
+    )
+
+    overlay.show_error_feedback \
+        .assert_called_once_with(
+            "Comando no reconocido"
+        )

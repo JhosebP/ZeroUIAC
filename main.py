@@ -66,6 +66,10 @@ from presentation.overlay.annotation_overlay import (
     AnnotationOverlay
 )
 
+from application.interaction.zoom_mode_manager import (
+    ZoomModeManager
+)
+
 
 def main():
 
@@ -163,6 +167,10 @@ def main():
         VoiceModeManager()
     )
 
+    zoom_mode_manager = (
+        ZoomModeManager()
+    )
+
     try:
 
         dictation_recognizer = (
@@ -220,6 +228,9 @@ def main():
             ),
             voice_mode_manager=(
                 voice_mode_manager
+            ),
+            zoom_mode_manager=(
+                zoom_mode_manager
             )
         )
     )
@@ -232,6 +243,9 @@ def main():
             ),
             calibration_service=(
                 calibration_service
+            ),
+            zoom_mode_manager=(
+                zoom_mode_manager
             )
         )
     )

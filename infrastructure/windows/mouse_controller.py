@@ -6,46 +6,126 @@ class MouseController:
 
     SAFE_MARGIN = 8
 
+    SM_XVIRTUALSCREEN = 76
+    SM_YVIRTUALSCREEN = 77
+    SM_CXVIRTUALSCREEN = 78
+    SM_CYVIRTUALSCREEN = 79
+
+    def get_virtual_screen_bounds(
+        self
+    ):
+        """
+        Devuelve el rectángulo completo
+        del escritorio virtual de Windows.
+    
+        Puede incluir coordenadas negativas
+        cuando existe un monitor a la izquierda
+        o encima de la pantalla principal.
+        """
+    
+        user32 = (
+            ctypes.windll.user32
+        )
+    
+        left = (
+            user32.GetSystemMetrics(
+                self.SM_XVIRTUALSCREEN
+            )
+        )
+    
+        top = (
+            user32.GetSystemMetrics(
+                self.SM_YVIRTUALSCREEN
+            )
+        )
+    
+        width = (
+            user32.GetSystemMetrics(
+                self.SM_CXVIRTUALSCREEN
+            )
+        )
+    
+        height = (
+            user32.GetSystemMetrics(
+                self.SM_CYVIRTUALSCREEN
+            )
+        )
+    
+        return (
+            left,
+            top,
+            width,
+            height
+        )
+
     def _clamp_point(
         self,
         x,
         y
     ):
         """
-        Evita colocar el cursor exactamente
-        en las esquinas de la pantalla.
+        Mantiene el cursor dentro del
+        escritorio virtual completo y evita
+        sus esquinas extremas.
         """
 
-        width, height = (
-            pyautogui.size()
+        (
+            left,
+            top,
+            width,
+            height
+        ) = (
+            self.get_virtual_screen_bounds()
         )
 
-        margin = self.SAFE_MARGIN
+        margin = (
+            self.SAFE_MARGIN
+        )
 
-        min_x = margin
-        min_y = margin
+        min_x = (
+            left + margin
+        )
+
+        min_y = (
+            top + margin
+        )
 
         max_x = max(
-            margin,
-            width - 1 - margin
+            min_x,
+            left
+            + width
+            - 1
+            - margin
         )
 
         max_y = max(
-            margin,
-            height - 1 - margin
+            min_y,
+            top
+            + height
+            - 1
+            - margin
         )
 
         safe_x = max(
             min_x,
-            min(max_x, int(x))
+            min(
+                max_x,
+                int(x)
+            )
         )
 
         safe_y = max(
             min_y,
-            min(max_y, int(y))
+            min(
+                max_y,
+                int(y)
+            )
         )
 
-        return safe_x, safe_y
+        return (
+            safe_x,
+            safe_y
+        )
 
     def _recover_cursor_from_corner(
         self
@@ -253,7 +333,20 @@ class MouseController:
 
     def get_screen_size(self):
         """
-        Obtiene las dimensiones de la pantalla.
+        Obtiene las dimensiones totales
+        del escritorio virtual.
         """
-
-        return pyautogui.size()
+    
+        (
+            _,
+            _,
+            width,
+            height
+        ) = (
+            self.get_virtual_screen_bounds()
+        )
+    
+        return (
+            width,
+            height
+        )

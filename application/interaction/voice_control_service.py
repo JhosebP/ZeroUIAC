@@ -1,3 +1,5 @@
+import threading
+
 from domain.events.event_types import (
     EventSource,
     EventType
@@ -6,8 +8,6 @@ from domain.events.event_types import (
 from domain.events.interaction_event import (
     InteractionEvent
 )
-
-import threading
 
 from modules.voice.microphone import (
     MicrophoneStream
@@ -25,6 +25,10 @@ from application.interaction.dictation_service import (
     DictationService
 )
 
+from application.interaction.zoom_mode_manager import (
+    ZoomModeManager
+)
+
 
 class VoiceControlService:
     """
@@ -40,8 +44,18 @@ class VoiceControlService:
         en la aplicación activa.
     """
 
+
+
     ACTIVATE_DICTATION_COMMAND = (
         "activar dictado"
+    )
+
+    ACTIVATE_ZOOM_COMMAND = (
+        "activar zoom"
+    )
+
+    DEACTIVATE_ZOOM_COMMAND = (
+        "desactivar zoom"
     )
 
     def __init__(
@@ -49,7 +63,8 @@ class VoiceControlService:
         event_bus,
         calibration_profile,
         dictation_service,
-        voice_mode_manager
+        voice_mode_manager,
+        zoom_mode_manager=None
     ):
         self.event_bus = (
             event_bus
@@ -67,11 +82,70 @@ class VoiceControlService:
             voice_mode_manager
         )
 
+        if zoom_mode_manager is None:
+
+            zoom_mode_manager = (
+                ZoomModeManager()
+            )
+
+        self.zoom_mode_manager = (
+            zoom_mode_manager
+        )
+
         self.stop_event = (
             threading.Event()
         )
 
         self.thread = None
+
+    def _publish_voice_error(
+        self,
+        message,
+        reason
+    ):
+        """
+        Publica un evento de estado
+        correspondiente a un error
+        de reconocimiento de voz.
+        """
+
+        event = InteractionEvent(
+            source=EventSource.VOICE,
+            event_type=EventType.STATUS,
+            payload={
+                "level": "error",
+                "message": message,
+                "reason": reason
+            }
+        )
+
+        self.event_bus.publish(
+            event
+        )
+
+    def _publish_voice_feedback(
+        self,
+        message,
+        reason
+    ):
+        """
+        Publica una confirmación de estado
+        producida por un comando de voz.
+        """
+
+        event = InteractionEvent(
+            source=EventSource.VOICE,
+            event_type=EventType.STATUS,
+            payload={
+                "level": "success",
+                "message": message,
+                "reason": reason
+            }
+        )
+
+        self.event_bus.publish(
+            event
+        )
 
     def _process_command_mode(
         self,
@@ -85,10 +159,60 @@ class VoiceControlService:
 
         command = (
             recognizer
-            .process_audio(audio)
+            .process_audio(
+                audio
+            )
         )
 
         if command is None:
+
+            status = getattr(
+                recognizer,
+                "last_status",
+                None
+            )
+
+            # Con MagicMock y otros
+            # reconocedores de prueba,
+            # evitamos interpretar objetos
+            # arbitrarios como estados.
+            if not isinstance(
+                status,
+                str
+            ):
+                return None
+
+            if (
+                status
+                == VoiceRecognizer
+                .STATUS_UNKNOWN
+            ):
+
+                self._publish_voice_error(
+                    message=(
+                        "Comando no reconocido"
+                    ),
+                    reason=(
+                        "unknown_command"
+                    )
+                )
+
+            elif (
+                status
+                == VoiceRecognizer
+                .STATUS_LOW_CONFIDENCE
+            ):
+
+                self._publish_voice_error(
+                    message=(
+                        "No se pudo confirmar "
+                        "el comando"
+                    ),
+                    reason=(
+                        "low_confidence"
+                    )
+                )
+
             return None
 
         print(
@@ -100,6 +224,7 @@ class VoiceControlService:
             command
             == self.ACTIVATE_DICTATION_COMMAND
         ):
+
             recognizer.reset()
 
             self.dictation_service.start()
@@ -112,6 +237,43 @@ class VoiceControlService:
                 self.ACTIVATE_DICTATION_COMMAND
             )
 
+        if (
+            command
+            == self.ACTIVATE_ZOOM_COMMAND
+        ):
+        
+            self.zoom_mode_manager.enable()
+        
+            self._publish_voice_feedback(
+                message="Modo zoom activado",
+                reason="zoom_mode_enabled"
+            )
+        
+            print(
+                "Modo zoom activado."
+            )
+        
+            return command
+        
+        
+        if (
+            command
+            == self.DEACTIVATE_ZOOM_COMMAND
+        ):
+        
+            self.zoom_mode_manager.disable()
+        
+            self._publish_voice_feedback(
+                message="Modo zoom desactivado",
+                reason="zoom_mode_disabled"
+            )
+        
+            print(
+                "Modo zoom desactivado."
+            )
+        
+            return command
+
         action = (
             VOICE_ACTION_MAP
             .get(command)
@@ -119,11 +281,13 @@ class VoiceControlService:
 
         if action is None:
 
-            print(
-                "Comando reconocido, "
-                "pero su función se "
-                "implementará en "
-                "Sprint 3."
+            self._publish_voice_error(
+                message=(
+                    "Comando sin acción disponible"
+                ),
+                reason=(
+                    "action_not_available"
+                )
             )
 
             return command
@@ -159,7 +323,9 @@ class VoiceControlService:
 
         result = (
             self.dictation_service
-            .process_audio(audio)
+            .process_audio(
+                audio
+            )
         )
 
         if result is None:
@@ -169,6 +335,7 @@ class VoiceControlService:
             result
             == DictationService.EXIT_PHRASE
         ):
+
             recognizer.reset()
 
             print(
@@ -182,7 +349,8 @@ class VoiceControlService:
             return result
 
         print(
-            f"Texto dictado: {result}"
+            f"Texto dictado: "
+            f"{result}"
         )
 
         return result
@@ -233,7 +401,10 @@ class VoiceControlService:
             print(
                 "ERROR DE VOZ:"
             )
-            print(error)
+
+            print(
+                error
+            )
 
             return
 
@@ -260,7 +431,9 @@ class VoiceControlService:
                 not self.stop_event.is_set()
             ):
 
-                audio = microphone.read()
+                audio = (
+                    microphone.read()
+                )
 
                 if audio is None:
                     continue
@@ -278,9 +451,11 @@ class VoiceControlService:
 
         self.stop_event.clear()
 
-        self.thread = threading.Thread(
-            target=self._run,
-            daemon=True
+        self.thread = (
+            threading.Thread(
+                target=self._run,
+                daemon=True
+            )
         )
 
         self.thread.start()

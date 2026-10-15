@@ -200,6 +200,10 @@ class MultimodalCoordinator:
                     f"{error}"
                 )
 
+                self._show_error_feedback(
+                    "No se pudo ejecutar la acción"
+                )
+
     def _show_feedback(
         self,
         text
@@ -218,6 +222,27 @@ class MultimodalCoordinator:
 
         self.overlay_service \
             .show_feedback(
+                text
+            )
+
+    def _show_error_feedback(
+        self,
+        text
+    ):
+        """
+        Muestra un mensaje de error
+        diferenciado en el overlay.
+        """
+    
+        if (
+            self.overlay_service
+            is None
+        ):
+    
+            return
+    
+        self.overlay_service \
+            .show_error_feedback(
                 text
             )
 
@@ -416,6 +441,60 @@ class MultimodalCoordinator:
 
             self._play_audio_feedback()
 
+            return
+
+        if (
+            event.event_type
+            == EventType.STATUS
+        ):
+        
+            payload = (
+                event.payload
+                or {}
+            )
+        
+            level = (
+                payload.get(
+                    "level"
+                )
+            )
+        
+            message = (
+                payload.get(
+                    "message"
+                )
+            )
+        
+            if (
+                level == "error"
+                and message
+            ):
+        
+                self._show_error_feedback(
+                    message
+                )
+        
+                return
+        
+            if (
+                level == "success"
+                and message
+            ):
+        
+                self._show_feedback(
+                    message
+                )
+        
+                if (
+                    self.audio_feedback_service
+                    is not None
+                ):
+        
+                    self.audio_feedback_service \
+                        .play_success()
+        
+                return
+        
             return
 
         # -----------------------------

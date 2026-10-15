@@ -17,6 +17,14 @@ class VoiceRecognizer:
     de voz mediante Vosk.
     """
 
+    STATUS_NO_AUDIO = "no_audio"
+    STATUS_PARTIAL = "partial"
+    STATUS_EMPTY = "empty"
+    STATUS_UNKNOWN = "unknown"
+    STATUS_LOW_CONFIDENCE = "low_confidence"
+    STATUS_INVALID_RESULT = "invalid_result"
+    STATUS_RECOGNIZED = "recognized"
+
     def __init__(
         self,
         model_path="resources/models/vosk-es",
@@ -34,6 +42,10 @@ class VoiceRecognizer:
         self.confidence_threshold = (
             confidence_threshold
         )
+
+        self.last_status = None
+        self.last_text = None
+        self.last_confidence = None
 
         if not self.model_path.exists():
 
@@ -74,8 +86,29 @@ class VoiceRecognizer:
         self,
         audio_data
     ):
+        """
+        Procesa audio y conserva el estado
+        del último resultado.
+
+        Esto permite diferenciar:
+
+        - silencio;
+        - resultado parcial;
+        - comando desconocido;
+        - baja confianza;
+        - comando reconocido.
+        """
+
+        self.last_status = None
+        self.last_text = None
+        self.last_confidence = None
 
         if audio_data is None:
+
+            self.last_status = (
+                self.STATUS_NO_AUDIO
+            )
+
             return None
 
         if not (
@@ -84,6 +117,11 @@ class VoiceRecognizer:
                 audio_data
             )
         ):
+
+            self.last_status = (
+                self.STATUS_PARTIAL
+            )
+
             return None
 
         result = json.loads(
@@ -92,25 +130,49 @@ class VoiceRecognizer:
 
         text = (
             result
-            .get("text", "")
+            .get(
+                "text",
+                ""
+            )
             .strip()
         )
 
+        self.last_text = text
+
         if not text:
+
+            self.last_status = (
+                self.STATUS_EMPTY
+            )
+
             return None
 
-        # Aceptar solamente frases
-        # pertenecientes a la gramática
-        # de control de ZeroUI-AC.
         if text not in VOICE_GRAMMAR:
+
+            self.last_status = (
+                self.STATUS_UNKNOWN
+            )
+
+            print(
+                f"Comando no reconocido: "
+                f"{text}"
+            )
+
             return None
 
-        words = result.get(
-            "result",
-            []
+        words = (
+            result.get(
+                "result",
+                []
+            )
         )
 
         if not words:
+
+            self.last_status = (
+                self.STATUS_INVALID_RESULT
+            )
+
             return None
 
         confidences = [
@@ -126,10 +188,18 @@ class VoiceRecognizer:
             / len(confidences)
         )
 
+        self.last_confidence = (
+            confidence
+        )
+
         if (
             confidence
             < self.confidence_threshold
         ):
+
+            self.last_status = (
+                self.STATUS_LOW_CONFIDENCE
+            )
 
             print(
                 f"Comando descartado: "
@@ -139,6 +209,10 @@ class VoiceRecognizer:
             )
 
             return None
+
+        self.last_status = (
+            self.STATUS_RECOGNIZED
+        )
 
         print(
             f"Confianza: "
@@ -152,5 +226,9 @@ class VoiceRecognizer:
         Reinicia el estado interno
         del reconocedor de comandos.
         """
+
+        self.last_status = None
+        self.last_text = None
+        self.last_confidence = None
 
         self.recognizer.Reset()

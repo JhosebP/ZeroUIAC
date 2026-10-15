@@ -22,6 +22,15 @@ from modules.voice.voice_mode import (
     VoiceModeManager
 )
 
+from modules.voice.recognizer import (
+    VoiceRecognizer
+)
+
+from domain.events.event_types import (
+    EventType
+)
+
+
 
 def create_service():
 
@@ -245,3 +254,81 @@ def test_zoom_in_command_is_published():
         published_event.action
         == SystemAction.ZOOM_IN
     )
+
+def test_unknown_command_publishes_error_status():
+
+    (
+        service,
+        event_bus,
+        _,
+        _
+    ) = create_service()
+
+    recognizer = MagicMock()
+
+    recognizer.process_audio \
+        .return_value = None
+
+    recognizer.last_status = (
+        VoiceRecognizer.STATUS_UNKNOWN
+    )
+
+    result = service.process_audio(
+        b"audio",
+        recognizer
+    )
+
+    assert result is None
+
+    event_bus.publish \
+        .assert_called_once()
+
+    event = (
+        event_bus.publish
+        .call_args
+        .args[0]
+    )
+
+    assert (
+        event.event_type
+        == EventType.STATUS
+    )
+
+    assert (
+        event.payload["level"]
+        == "error"
+    )
+
+    assert (
+        event.payload["message"]
+        == "Comando no reconocido"
+    )
+
+
+def test_partial_audio_does_not_publish_error():
+
+    (
+        service,
+        event_bus,
+        _,
+        _
+    ) = create_service()
+
+    recognizer = MagicMock()
+
+    recognizer.process_audio \
+        .return_value = None
+
+    recognizer.last_status = (
+        VoiceRecognizer.STATUS_PARTIAL
+    )
+
+    result = service.process_audio(
+        b"audio",
+        recognizer
+    )
+
+    assert result is None
+
+    event_bus.publish \
+        .assert_not_called()

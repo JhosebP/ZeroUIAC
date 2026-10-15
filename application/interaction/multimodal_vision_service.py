@@ -44,6 +44,10 @@ from modules.vision.gesture_detector import (
     GestureDetector
 )
 
+from application.interaction.zoom_mode_manager import (
+    ZoomModeManager
+)
+
 class MultimodalVisionService:
     """
     Procesa cabeza y extremidad remanente
@@ -59,7 +63,8 @@ class MultimodalVisionService:
         self,
         event_bus,
         mouse_controller,
-        calibration_service
+        calibration_service,
+        zoom_mode_manager=None
     ):
         self.event_bus = event_bus
 
@@ -69,6 +74,16 @@ class MultimodalVisionService:
 
         self.calibration = (
             calibration_service
+        )
+
+        if zoom_mode_manager is None:
+
+            zoom_mode_manager = (
+                ZoomModeManager()
+            )
+
+        self.zoom_mode_manager = (
+            zoom_mode_manager
         )
 
         self.profile = (
@@ -217,36 +232,47 @@ class MultimodalVisionService:
 
             return
 
-        zoom_action = (
-            self.head_zoom_detector
-            .detect(
-                pitch=pose["pitch"],
-                neutral_pitch=(
-                    self.profile
-                    .neutral_pitch
+        if (
+            self.zoom_mode_manager
+            .is_enabled()
+        ):
+
+            zoom_action = (
+                self.head_zoom_detector
+                .detect(
+                    pitch=pose["pitch"],
+                    neutral_pitch=(
+                        self.profile
+                        .neutral_pitch
+                    )
                 )
             )
-        )
 
-        if zoom_action is not None:
+            if zoom_action is not None:
+            
+                self.head_mapper.reset()
 
-            self.head_mapper.reset()
+                self._publish_head_zoom(
+                    zoom_action
+                )
 
-            self._publish_head_zoom(
-                zoom_action
-            )
+                return
 
-            return
+            if (
+                self.head_zoom_detector
+                .is_active
+            ):
+
+                self.head_mapper.reset()
+
+                return
+
+        else:
+        
+            self.head_zoom_detector.reset()
 
 
         if self.head_zoom_detector.is_active:
-        
-            self.head_mapper.reset()
-
-            return
-
-
-        if self._limb_has_control():
         
             self.head_mapper.reset()
 
@@ -471,8 +497,14 @@ class MultimodalVisionService:
         if hand_position is None:
             return
 
-        screen_width, screen_height = (
-            self.mouse.get_screen_size()
+        (
+            screen_left,
+            screen_top,
+            screen_width,
+            screen_height
+        ) = (
+            self.mouse
+            .get_virtual_screen_bounds()
         )
 
         raw_x = hand_position["x"]
@@ -509,6 +541,16 @@ class MultimodalVisionService:
                 screen_width,
                 screen_height
             )
+        )
+
+        cursor_x = (
+            cursor_x
+            + screen_left
+        )
+        
+        cursor_y = (
+            cursor_y
+            + screen_top
         )
 
         current_position = (

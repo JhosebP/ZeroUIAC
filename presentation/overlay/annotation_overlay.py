@@ -26,6 +26,13 @@ class AnnotationOverlay:
     MODE_DRAW = "draw"
     MODE_ERASE = "erase"
 
+    SM_CXSCREEN = 0
+
+    SM_XVIRTUALSCREEN = 76
+    SM_YVIRTUALSCREEN = 77
+    SM_CXVIRTUALSCREEN = 78
+    SM_CYVIRTUALSCREEN = 79
+
     def __init__(
         self,
         line_width=5,
@@ -73,6 +80,12 @@ class AnnotationOverlay:
 
         self._canvas = None
 
+        self._virtual_left = 0
+        self._virtual_top = 0
+
+        self._virtual_width = 0
+        self._virtual_height = 0
+
         self._last_point = None
 
         self._clear_version = 0
@@ -80,6 +93,8 @@ class AnnotationOverlay:
         self._processed_clear_version = 0
 
         self._feedback_text = None
+
+        self._feedback_type = "success"
 
         self._feedback_until = 0.0
 
@@ -107,6 +122,13 @@ class AnnotationOverlay:
         with self._lock:
 
             return self._feedback_text
+
+    @property
+    def feedback_type(self):
+    
+        with self._lock:
+        
+            return self._feedback_type
 
     def toggle_draw(self):
         """
@@ -190,14 +212,12 @@ class AnnotationOverlay:
     def show_feedback(
         self,
         text,
-        duration=None
+        duration=None,
+        feedback_type="success"
     ):
         """
-        Solicita mostrar una confirmación
+        Solicita mostrar retroalimentación
         visual temporal.
-
-        No manipula Tkinter directamente
-        desde el hilo que genera el evento.
         """
 
         if not text:
@@ -209,10 +229,26 @@ class AnnotationOverlay:
                 self.feedback_duration
             )
 
+        feedback_type = (
+            str(feedback_type)
+            .lower()
+        )
+
+        if feedback_type not in (
+            "success",
+            "error"
+        ):
+
+            feedback_type = "success"
+
         with self._lock:
 
             self._feedback_text = (
                 str(text)
+            )
+
+            self._feedback_type = (
+                feedback_type
             )
 
             self._feedback_until = (
@@ -221,6 +257,23 @@ class AnnotationOverlay:
             )
 
             self._feedback_version += 1
+
+
+    def show_error_feedback(
+        self,
+        text,
+        duration=None
+    ):
+        """
+        Muestra retroalimentación
+        visual de error.
+        """
+
+        self.show_feedback(
+            text=text,
+            duration=duration,
+            feedback_type="error"
+        )
 
     def start(self):
         """
@@ -357,6 +410,94 @@ class AnnotationOverlay:
                 error
             )
 
+    def _get_virtual_screen_bounds(
+        self
+    ):
+        """
+        Obtiene el rectángulo completo
+        del escritorio virtual de Windows.
+        """
+    
+        user32 = (
+            ctypes.windll.user32
+        )
+    
+        left = (
+            user32.GetSystemMetrics(
+                self.SM_XVIRTUALSCREEN
+            )
+        )
+    
+        top = (
+            user32.GetSystemMetrics(
+                self.SM_YVIRTUALSCREEN
+            )
+        )
+    
+        width = (
+            user32.GetSystemMetrics(
+                self.SM_CXVIRTUALSCREEN
+            )
+        )
+    
+        height = (
+            user32.GetSystemMetrics(
+                self.SM_CYVIRTUALSCREEN
+            )
+        )
+    
+        return (
+            left,
+            top,
+            width,
+            height
+        )
+    
+    
+    def _screen_to_canvas(
+        self,
+        x,
+        y
+    ):
+        """
+        Convierte coordenadas globales
+        de Windows en coordenadas locales
+        del Canvas del overlay.
+        """
+    
+        canvas_x = (
+            int(x)
+            - self._virtual_left
+        )
+    
+        canvas_y = (
+            int(y)
+            - self._virtual_top
+        )
+    
+        return (
+            canvas_x,
+            canvas_y
+        )
+    
+    
+    def _build_virtual_geometry(
+        self
+    ):
+        """
+        Construye la geometría Tkinter
+        para cubrir todo el escritorio
+        virtual, incluso si existen
+        coordenadas negativas.
+        """
+    
+        return (
+            f"{self._virtual_width}x"
+            f"{self._virtual_height}"
+            f"{self._virtual_left:+d}"
+            f"{self._virtual_top:+d}"
+        )
+    
     def _run(self):
         """
         Ejecuta la ventana transparente.
@@ -391,22 +532,25 @@ class AnnotationOverlay:
                 True
             )
 
+            (
+                self._virtual_left,
+                self._virtual_top,
+                self._virtual_width,
+                self._virtual_height
+            ) = (
+                self._get_virtual_screen_bounds()
+            )
+            
             screen_width = (
-                self._root
-                .winfo_screenwidth()
+                self._virtual_width
             )
-
+            
             screen_height = (
-                self._root
-                .winfo_screenheight()
+                self._virtual_height
             )
-
+            
             self._root.geometry(
-                (
-                    f"{screen_width}x"
-                    f"{screen_height}"
-                    "+0+0"
-                )
+                self._build_virtual_geometry()
             )
 
             self._root.configure(
@@ -514,6 +658,10 @@ class AnnotationOverlay:
                 self._feedback_text
             )
 
+            feedback_type = (
+                self._feedback_type
+            )
+
             feedback_until = (
                 self._feedback_until
             )
@@ -557,7 +705,8 @@ class AnnotationOverlay:
             ):
 
                 self._render_feedback(
-                    feedback_text
+                    feedback_text,
+                    feedback_type
                 )
 
                 self._processed_feedback_version = (
@@ -606,13 +755,12 @@ class AnnotationOverlay:
                 position = (
                     pyautogui.position()
                 )
-
-                x = (
-                    position.x
-                )
-
-                y = (
-                    position.y
+                
+                x, y = (
+                    self._screen_to_canvas(
+                        position.x,
+                        position.y
+                    )
                 )
 
                 if (
@@ -681,11 +829,15 @@ class AnnotationOverlay:
 
     def _render_feedback(
         self,
-        text
+        text,
+        feedback_type="success"
     ):
         """
         Dibuja la notificación visual
         en la esquina superior derecha.
+
+        Los errores se muestran
+        diferenciados en rojo.
         """
 
         if (
@@ -699,31 +851,65 @@ class AnnotationOverlay:
             "feedback"
         )
 
-        screen_width = (
-            self._root
-            .winfo_screenwidth()
-        )
+        if feedback_type == "error":
 
+            background = (
+                "#B3261E"
+            )
+
+            icon = "✕"
+
+        else:
+
+            background = (
+                "#245C45"
+            )
+
+            icon = "✓"
+
+        primary_width = (
+            ctypes.windll
+            .user32
+            .GetSystemMetrics(
+                self.SM_CXSCREEN
+            )
+        )
+        
+        primary_left = (
+            -self._virtual_left
+        )
+        
+        primary_top = (
+            -self._virtual_top
+        )
+        
         right = (
-            screen_width
+            primary_left
+            + primary_width
             - 20
         )
-
+        
         left = (
             right
             - 320
         )
-
-        top = 25
-
-        bottom = 85
+        
+        top = (
+            primary_top
+            + 25
+        )
+        
+        bottom = (
+            top
+            + 60
+        )
 
         self._canvas.create_rectangle(
             left,
             top,
             right,
             bottom,
-            fill="#245C45",
+            fill=background,
             outline="",
             tags=(
                 "feedback",
@@ -737,7 +923,7 @@ class AnnotationOverlay:
                 + bottom
             ) / 2,
             text=(
-                f"✓ {text}"
+                f"{icon} {text}"
             ),
             anchor="w",
             fill="white",
