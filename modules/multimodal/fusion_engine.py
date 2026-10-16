@@ -20,14 +20,24 @@ class FusionEngine:
     def __init__(
         self,
         priority_resolver=None,
-        channel_manager=None
+        channel_manager=None,
+        channel_weights=None
     ):
-
+    
+        if priority_resolver is None:
+    
+            priority_resolver = (
+                PriorityResolver(
+                    channel_weights=(
+                        channel_weights
+                    )
+                )
+            )
+    
         self.priority_resolver = (
             priority_resolver
-            or PriorityResolver()
         )
-
+    
         self.channel_manager = (
             channel_manager
             or ChannelManager()

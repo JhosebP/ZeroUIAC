@@ -19,6 +19,10 @@ from modules.multimodal.fusion_engine import (
     FusionEngine
 )
 
+from modules.adaptation.adaptive_channel_weights import (
+    AdaptiveChannelWeights
+)
+
 
 def test_single_event_passes():
 
@@ -123,5 +127,82 @@ def test_empty_events():
     engine = FusionEngine()
 
     result = engine.process_events([])
+
+    assert result == []
+
+def test_fusion_engine_uses_adaptive_channel_weights():
+
+    weights = (
+        AdaptiveChannelWeights()
+    )
+
+    for _ in range(100):
+
+        weights.decrease(
+            EventSource.VOICE
+        )
+
+        weights.increase(
+            EventSource.GESTURE
+        )
+
+    engine = FusionEngine(
+        channel_weights=weights
+    )
+
+    voice_event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    gesture_event = InteractionEvent(
+        source=EventSource.GESTURE,
+        event_type=EventType.ACTION,
+        action=SystemAction.PASTE
+    )
+
+    result = engine.process_events([
+        voice_event,
+        gesture_event
+    ])
+
+    assert len(result) == 1
+
+    assert result[0] == gesture_event
+
+
+def test_disabled_channel_remains_disabled_with_high_weight():
+
+    weights = (
+        AdaptiveChannelWeights()
+    )
+
+    for _ in range(100):
+
+        weights.increase(
+            EventSource.VOICE
+        )
+
+    manager = ChannelManager()
+
+    manager.disable(
+        EventSource.VOICE
+    )
+
+    engine = FusionEngine(
+        channel_manager=manager,
+        channel_weights=weights
+    )
+
+    voice_event = InteractionEvent(
+        source=EventSource.VOICE,
+        event_type=EventType.ACTION,
+        action=SystemAction.COPY
+    )
+
+    result = engine.process_events([
+        voice_event
+    ])
 
     assert result == []
