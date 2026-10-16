@@ -268,12 +268,26 @@ class AdaptiveStateBuilder:
             ),
         )
 
+        voice_error_events = max(
+            0,
+            int(
+                metrics.get(
+                    "voice_error_events",
+                    error_events,
+                )
+                or 0
+            ),
+        )
+
         channel_switches = max(
             0,
             int(
                 metrics.get(
-                    "channel_switches",
-                    0,
+                    "user_channel_switches",
+                    metrics.get(
+                        "channel_switches",
+                        0,
+                    ),
                 )
                 or 0
             ),
@@ -303,7 +317,7 @@ class AdaptiveStateBuilder:
         else:
             voice_error_rate = min(
                 1.0,
-                error_events
+                voice_error_events
                 / voice_events,
             )
 

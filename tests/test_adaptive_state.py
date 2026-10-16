@@ -219,3 +219,64 @@ def test_state_can_be_used_as_q_table_key():
     )
 
     assert len(key) == 5
+
+def test_voice_state_uses_only_voice_errors():
+
+    builder = AdaptiveStateBuilder()
+
+    state = builder.build({
+        "duration_seconds": 60.0,
+
+        "action_events": 0,
+
+        "error_events": 10,
+
+        "voice_error_events": 0,
+
+        "channel_switches": 0,
+
+        "user_channel_switches": 0,
+
+        "source_counts": {
+            "voice": 10,
+            "head": 0,
+            "limb": 0,
+            "gesture": 0,
+        }
+    })
+
+    assert (
+        state.voice_error_level
+        == "low"
+    )
+
+
+def test_state_prefers_user_channel_switches():
+
+    builder = AdaptiveStateBuilder()
+
+    state = builder.build({
+        "duration_seconds": 60.0,
+
+        "action_events": 0,
+
+        "error_events": 0,
+
+        "voice_error_events": 0,
+
+        "channel_switches": 20,
+
+        "user_channel_switches": 0,
+
+        "source_counts": {
+            "voice": 0,
+            "head": 10,
+            "limb": 0,
+            "gesture": 0,
+        }
+    })
+
+    assert (
+        state.switch_level
+        == "low"
+    )
