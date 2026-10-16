@@ -43,7 +43,8 @@ class HeadCursorMapper:
         yaw,
         pitch,
         neutral_yaw,
-        neutral_pitch
+        neutral_pitch,
+        sensitivity_factor=1.0
     ):
         relative_yaw = yaw - neutral_yaw
         relative_pitch = pitch - neutral_pitch
@@ -56,12 +57,51 @@ class HeadCursorMapper:
             relative_pitch
         )
 
-        # El eje horizontal se invierte porque la imagen
-        # de la cámara está espejada con cv2.flip(frame, 1).
-        dx = -relative_yaw * self.sensitivity_x
+        # La sensibilidad calibrada permanece
+        # como valor base. El factor adaptativo
+        # solamente modifica su efecto temporal.
+        try:
         
-        # El eje vertical ya tiene la dirección correcta.
-        dy = relative_pitch * self.sensitivity_y
+            factor = float(
+                sensitivity_factor
+            )
+        
+        except (
+            TypeError,
+            ValueError
+        ):
+        
+            factor = 1.0
+        
+        
+        if factor <= 0.0:
+            factor = 1.0
+        
+        
+        effective_sensitivity_x = (
+            self.sensitivity_x
+            * factor
+        )
+        
+        effective_sensitivity_y = (
+            self.sensitivity_y
+            * factor
+        )
+        
+        
+        # El eje horizontal se invierte porque
+        # la imagen está espejada.
+        dx = (
+            -relative_yaw
+            * effective_sensitivity_x
+        )
+        
+        # El eje vertical conserva
+        # la dirección original.
+        dy = (
+            relative_pitch
+            * effective_sensitivity_y
+        )
 
         dx = self._limit(dx)
         dy = self._limit(dy)

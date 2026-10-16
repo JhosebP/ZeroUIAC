@@ -64,7 +64,8 @@ class MultimodalVisionService:
         event_bus,
         mouse_controller,
         calibration_service,
-        zoom_mode_manager=None
+        zoom_mode_manager=None,
+        adaptive_parameters_manager=None
     ):
         self.event_bus = event_bus
 
@@ -84,6 +85,10 @@ class MultimodalVisionService:
 
         self.zoom_mode_manager = (
             zoom_mode_manager
+        )
+
+        self.adaptive_parameters_manager = (
+            adaptive_parameters_manager
         )
 
         self.profile = (
@@ -164,6 +169,48 @@ class MultimodalVisionService:
         self.hand_stable_frames = 0
 
         self.required_hand_frames = 3
+
+    def _get_head_sensitivity_factor(
+        self
+    ):
+        """
+        Obtiene el factor adaptativo actual
+        de sensibilidad de cabeza.
+    
+        Si el módulo adaptativo no está
+        disponible o falla, se conserva
+        el comportamiento original.
+        """
+    
+        if (
+            self.adaptive_parameters_manager
+            is None
+        ):
+    
+            return 1.0
+    
+        try:
+        
+            snapshot = (
+                self.adaptive_parameters_manager
+                .snapshot()
+            )
+    
+            factor = float(
+                snapshot
+                .head_sensitivity_factor
+            )
+    
+            if factor <= 0.0:
+                return 1.0
+    
+            return factor
+    
+        except Exception:
+        
+            # El módulo adaptativo nunca debe
+            # bloquear el control principal.
+            return 1.0
 
     def _process_head(
         self,
@@ -284,13 +331,20 @@ class MultimodalVisionService:
 
             return
 
+        head_sensitivity_factor = (
+            self._get_head_sensitivity_factor()
+        )
+        
         dx, dy = (
             self.head_mapper
             .calculate(
                 pose["yaw"],
                 pose["pitch"],
                 self.profile.neutral_yaw,
-                self.profile.neutral_pitch
+                self.profile.neutral_pitch,
+                sensitivity_factor=(
+                    head_sensitivity_factor
+                )
             )
         )
 
