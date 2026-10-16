@@ -212,6 +212,46 @@ class MultimodalVisionService:
             # bloquear el control principal.
             return 1.0
 
+    def _get_limb_sensitivity_factor(
+        self
+    ):
+        """
+        Obtiene el factor adaptativo actual
+        de sensibilidad de la extremidad.
+
+        Si la adaptación no está disponible
+        o falla, mantiene el comportamiento
+        original.
+        """
+
+        if (
+            self.adaptive_parameters_manager
+            is None
+        ):
+
+            return 1.0
+
+        try:
+
+            snapshot = (
+                self.adaptive_parameters_manager
+                .snapshot()
+            )
+
+            factor = float(
+                snapshot
+                .limb_sensitivity_factor
+            )
+
+            if factor <= 0.0:
+                return 1.0
+
+            return factor
+
+        except Exception:
+
+            return 1.0
+
     def _process_head(
         self,
         frame
@@ -588,12 +628,19 @@ class MultimodalVisionService:
                 * self.smoothed_hand_y
             )
 
+        limb_sensitivity_factor = (
+            self._get_limb_sensitivity_factor()
+        )
+        
         cursor_x, cursor_y = (
             self.limb_mapper.calculate(
                 self.smoothed_hand_x,
                 self.smoothed_hand_y,
                 screen_width,
-                screen_height
+                screen_height,
+                sensitivity_factor=(
+                    limb_sensitivity_factor
+                )
             )
         )
 

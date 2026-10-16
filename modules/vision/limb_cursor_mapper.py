@@ -98,7 +98,8 @@ class LimbCursorMapper:
         hand_x,
         hand_y,
         screen_width,
-        screen_height
+        screen_height,
+        sensitivity_factor=1.0
     ):
         """
         Convierte posición de muñeca
@@ -113,14 +114,43 @@ class LimbCursorMapper:
             hand_y
         )
 
+        try:
+
+            factor = float(
+                sensitivity_factor
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            factor = 1.0
+
+
+        if factor <= 0.0:
+            factor = 1.0
+
+
+        effective_sensitivity_x = (
+            self.sensitivity_x
+            * factor
+        )
+
+        effective_sensitivity_y = (
+            self.sensitivity_y
+            * factor
+        )
+
+
         x = self._apply_sensitivity(
             x,
-            self.sensitivity_x
+            effective_sensitivity_x
         )
 
         y = self._apply_sensitivity(
             y,
-            self.sensitivity_y
+            effective_sensitivity_y
         )
 
         target_x = (
