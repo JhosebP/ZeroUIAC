@@ -15,6 +15,10 @@ from modules.adaptation.session_manager import (
     SessionManager
 )
 
+from unittest.mock import (
+    MagicMock
+)
+
 
 def test_session_is_inactive_by_default():
 
@@ -200,4 +204,129 @@ def test_last_summary_is_preserved():
     assert (
         manager.get_last_summary()
         == summary
+    )
+
+def test_end_session_includes_fatigue():
+
+    manager = SessionManager()
+
+    manager.start_session()
+
+    summary = (
+        manager.end_session()
+    )
+
+    assert (
+        "fatigue"
+        in summary
+    )
+
+    assert (
+        summary["fatigue"]
+        ["score"]
+        == 0.0
+    )
+
+    assert (
+        summary["fatigue"]
+        ["level"]
+        == "low"
+    )
+
+
+def test_end_session_uses_configured_persistence():
+
+    persistence = (
+        MagicMock()
+    )
+
+    manager = SessionManager(
+        persistence=persistence
+    )
+
+    manager.start_session()
+
+    summary = (
+        manager.end_session()
+    )
+
+    persistence.save \
+        .assert_called_once_with(
+            summary
+        )
+
+
+def test_persistence_failure_does_not_block_session_end():
+
+    persistence = (
+        MagicMock()
+    )
+
+    persistence.save.side_effect = (
+        OSError(
+            "disk error"
+        )
+    )
+
+    manager = SessionManager(
+        persistence=persistence
+    )
+
+    manager.start_session()
+
+    summary = (
+        manager.end_session()
+    )
+
+    assert summary is not None
+
+    assert (
+        manager.is_active
+        is False
+    )
+
+    assert (
+        "OSError"
+        in manager
+        .get_last_persistence_error()
+    )
+
+
+def test_fatigue_failure_does_not_block_session_end():
+
+    estimator = (
+        MagicMock()
+    )
+
+    estimator.estimate.side_effect = (
+        RuntimeError(
+            "estimator error"
+        )
+    )
+
+    manager = SessionManager(
+        fatigue_estimator=estimator
+    )
+
+    manager.start_session()
+
+    summary = (
+        manager.end_session()
+    )
+
+    assert (
+        summary["fatigue"]
+        ["score"]
+        is None
+    )
+
+    assert (
+        summary["fatigue"]
+        ["level"]
+        == "unavailable"
+    )
+
+    assert (
+        manager.is_active
+        is False
     )
