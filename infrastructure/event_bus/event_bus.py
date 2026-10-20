@@ -9,6 +9,8 @@ from domain.events.event_types import (
     EventType
 )
 
+#2da capa de abstracción para los eventos de interacción del usuario.
+#Distribuye eventos de interacción a los suscriptores registrados.
 
 class EventBus:
     """

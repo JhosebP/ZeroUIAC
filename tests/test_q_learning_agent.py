@@ -370,3 +370,22 @@ def test_invalid_epsilon_configuration_is_rejected():
             epsilon=0.1,
             epsilon_min=0.5,
         )
+
+def test_exploitation_prefers_no_change_on_tie():
+
+    agent = QLearningAgent(
+        epsilon=0.0,
+        epsilon_min=0.0,
+        seed=1,
+    )
+
+    state = create_state()
+
+    action = agent.choose_action(
+        state
+    )
+
+    assert (
+        action
+        == AdaptiveAction.NO_CHANGE
+    )

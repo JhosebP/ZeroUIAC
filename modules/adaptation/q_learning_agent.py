@@ -295,7 +295,21 @@ class QLearningAgent:
                 in values.items()
                 if value == best_value
             ]
-
+            
+            # Durante explotación, un empate
+            # favorece la opción más segura.
+            #
+            # La exploración epsilon sí puede
+            # seleccionar otras acciones.
+            if (
+                AdaptiveAction.NO_CHANGE
+                in best_actions
+            ):
+            
+                return (
+                    AdaptiveAction.NO_CHANGE
+                )
+            
             return (
                 self._random.choice(
                     best_actions

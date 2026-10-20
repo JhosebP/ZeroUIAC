@@ -8,6 +8,8 @@ from domain.events.event_types import (
     EventType
 )
 
+#3ra capa de abstracción para los eventos de interacción del usuario.
+#Agrupa y coordina eventos multimodales para su ejecución.
 
 class MultimodalCoordinator:
     """

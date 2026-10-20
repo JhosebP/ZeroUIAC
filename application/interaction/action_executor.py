@@ -2,6 +2,8 @@ from domain.commands.system_actions import (
     SystemAction
 )
 
+#5ta capa de abstracción para los eventos de interacción del usuario.
+#Dirige la acción seleccionada a los controladores de mouse y teclado correspondientes.
 
 class ActionExecutor:
     """

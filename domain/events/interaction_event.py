@@ -11,6 +11,8 @@ from domain.events.event_types import (
     EventType
 )
 
+#1ra capa de abstracción para los eventos de interacción del usuario.
+#Reconoce la interacción del usuario y la encapsula en un evento de interacción.
 
 @dataclass(frozen=True)
 class InteractionEvent:

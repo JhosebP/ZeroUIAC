@@ -3,6 +3,8 @@ from domain.events.event_types import (
     EventType
 )
 
+#4ta capa de abstracción para los eventos de interacción del usuario.
+#evalúa eventos de interacción y resuelve prioridades para la fusión multimodal.
 
 class PriorityResolver:
     """

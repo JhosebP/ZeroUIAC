@@ -6,6 +6,9 @@ from modules.multimodal.channel_manager import (
     ChannelManager
 )
 
+#4ta capa de abstracción para los eventos de interacción del usuario.
+#Evalúa eventos de interacción y resuelve prioridades para la fusión multimodal.
+#evaluación de eventos de interacción y resolución de prioridades para la fusión multimodal
 
 class FusionEngine:
     """
