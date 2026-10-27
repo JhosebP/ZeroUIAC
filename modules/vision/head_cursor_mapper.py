@@ -57,6 +57,16 @@ class HeadCursorMapper:
             relative_pitch
         )
 
+        if (
+            relative_yaw == 0.0
+            and relative_pitch == 0.0
+        ):
+        
+            self.previous_dx = 0.0
+            self.previous_dy = 0.0
+        
+            return 0, 0
+
         # La sensibilidad calibrada permanece
         # como valor base. El factor adaptativo
         # solamente modifica su efecto temporal.
@@ -106,16 +116,22 @@ class HeadCursorMapper:
         dx = self._limit(dx)
         dy = self._limit(dy)
 
-        # Suavizado
-        dx = (
-            self.smoothing * dx
-            + (1 - self.smoothing) * self.previous_dx
-        )
+        # Cada eje neutro se detiene sin conservar la cola del suavizado.
+        if relative_yaw == 0.0:
+            dx = 0.0
+        else:
+            dx = (
+                self.smoothing * dx
+                + (1 - self.smoothing) * self.previous_dx
+            )
 
-        dy = (
-            self.smoothing * dy
-            + (1 - self.smoothing) * self.previous_dy
-        )
+        if relative_pitch == 0.0:
+            dy = 0.0
+        else:
+            dy = (
+                self.smoothing * dy
+                + (1 - self.smoothing) * self.previous_dy
+            )
 
         self.previous_dx = dx
         self.previous_dy = dy

@@ -212,3 +212,93 @@ def test_invalid_context_is_rejected():
         calculator.calculate(
             "contexto_invalido"
         )
+
+def test_action_failures_reduce_reward():
+
+    calculator = (
+        RewardCalculator()
+    )
+
+    clean = calculator.calculate(
+        RewardContext(
+            success=True
+        )
+    )
+
+    with_failures = (
+        calculator.calculate(
+            RewardContext(
+                success=True,
+                action_failure_rate=0.5,
+            )
+        )
+    )
+
+    assert (
+        with_failures
+        < clean
+    )
+
+
+def test_drag_failure_has_penalty():
+
+    calculator = (
+        RewardCalculator()
+    )
+
+    reward = calculator.calculate(
+        RewardContext(
+            success=True,
+            drag_failure_rate=1.0,
+        )
+    )
+
+    assert reward < 1.0
+
+
+def test_cursor_corrections_reduce_reward():
+
+    calculator = (
+        RewardCalculator()
+    )
+
+    clean = calculator.calculate(
+        RewardContext(
+            success=True,
+            correction_rate=0.0,
+        )
+    )
+
+    unstable = calculator.calculate(
+        RewardContext(
+            success=True,
+            correction_rate=0.8,
+        )
+    )
+
+    assert unstable < clean
+
+
+def test_outcome_rates_are_clamped():
+
+    calculator = (
+        RewardCalculator()
+    )
+
+    normal = calculator.calculate(
+        RewardContext(
+            action_failure_rate=1.0,
+            drag_failure_rate=1.0,
+            correction_rate=1.0,
+        )
+    )
+
+    excessive = calculator.calculate(
+        RewardContext(
+            action_failure_rate=100.0,
+            drag_failure_rate=100.0,
+            correction_rate=100.0,
+        )
+    )
+
+    assert normal == excessive

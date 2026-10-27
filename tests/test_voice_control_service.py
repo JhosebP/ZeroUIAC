@@ -136,8 +136,11 @@ def test_activate_dictation_starts_service():
     recognizer.reset \
         .assert_called_once()
 
-    event_bus.publish \
-        .assert_not_called()
+    event_bus.publish.assert_called_once()
+    event = event_bus.publish.call_args.args[0]
+    assert event.event_type == EventType.STATUS
+    assert event.payload["level"] == "mode"
+    assert event.payload["message"] == "Dictado activado"
 
 
 def test_dictation_mode_routes_audio_to_dictation():
@@ -332,3 +335,74 @@ def test_partial_audio_does_not_publish_error():
 
     event_bus.publish \
         .assert_not_called()
+
+def test_enter_command_publishes_execution_event():
+    service, event_bus, dictation, mode_manager = create_service()
+    recognizer = MagicMock()
+    recognizer.process_audio.return_value = "enter"
+
+    assert service.process_audio(b"audio", recognizer) == "enter"
+    event_bus.publish.assert_called_once()
+    event = event_bus.publish.call_args.args[0]
+    assert event.source == EventSource.VOICE
+    assert event.event_type == EventType.ACTION
+    assert event.action == SystemAction.ENTER
+    assert event.conflict_key == "action"
+    assert mode_manager.is_command_mode()
+    dictation.process_audio.assert_not_called()
+
+
+def test_enter_in_dictation_remains_text_without_system_action():
+    service, event_bus, _, mode_manager = create_service()
+    command_recognizer = MagicMock()
+    dictation_recognizer = MagicMock()
+    dictation_recognizer.process_audio.return_value = "enter"
+    text_controller = MagicMock()
+    text_controller.write_text.return_value = True
+    service.dictation_service = DictationService(
+        dictation_recognizer, text_controller, mode_manager,
+    )
+    service.dictation_service.start()
+
+    assert service.process_audio(b"audio", command_recognizer) == "enter"
+    text_controller.write_text.assert_called_once_with("enter")
+    command_recognizer.process_audio.assert_not_called()
+    event_bus.publish.assert_not_called()
+    assert mode_manager.is_dictation_mode()
+
+
+def test_enter_voice_to_keyboard_records_success_and_failure():
+    from unittest.mock import patch
+    from infrastructure.event_bus.event_bus import EventBus
+    from infrastructure.windows.keyboard_controller import KeyboardController
+    from application.interaction.action_executor import ActionExecutor
+    from application.interaction.multimodal_coordinator import MultimodalCoordinator
+    from modules.adaptation.interaction_outcome_tracker import InteractionOutcomeTracker
+    from modules.multimodal.fusion_engine import FusionEngine
+
+    for failure in (None, RuntimeError("Keyboard unavailable")):
+        service, _, _, _ = create_service()
+        service.event_bus = EventBus()
+        tracker = InteractionOutcomeTracker()
+        mouse = MagicMock()
+        coordinator = MultimodalCoordinator(
+            event_bus=service.event_bus,
+            fusion_engine=FusionEngine(),
+            action_executor=ActionExecutor(mouse, KeyboardController()),
+            mouse_controller=mouse,
+            interaction_outcome_tracker=tracker,
+        )
+        recognizer = MagicMock()
+        recognizer.process_audio.return_value = "enter"
+        with patch("application.interaction.multimodal_coordinator.threading.Timer"), \
+             patch("infrastructure.windows.keyboard_controller.pyautogui.press", side_effect=failure) as press:
+            try:
+                assert service.process_audio(b"audio", recognizer) == "enter"
+                coordinator._flush()
+                press.assert_called_once_with("enter")
+                outcome = tracker.snapshot()
+                assert outcome["action_attempts"] == 1
+                assert outcome["action_successes"] == (1 if failure is None else 0)
+                assert outcome["action_failures"] == (0 if failure is None else 1)
+            finally:
+                coordinator.stop()

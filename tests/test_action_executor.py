@@ -201,3 +201,21 @@ def test_delete():
 
     keyboard.delete_selected \
         .assert_called_once()
+
+def test_enter_delegates_to_keyboard_and_returns_success():
+    executor, mouse, keyboard = create_executor()
+    # Keyboard operations signal success by returning normally, like copy().
+    keyboard.enter.return_value = None
+    assert executor.execute(SystemAction.ENTER) is True
+    keyboard.enter.assert_called_once_with()
+    assert mouse.mock_calls == []
+
+
+def test_enter_keyboard_failure_propagates():
+    import pytest
+
+    executor, _, keyboard = create_executor()
+    keyboard.enter.side_effect = RuntimeError("Keyboard failed")
+    with pytest.raises(RuntimeError, match="Keyboard failed"):
+        executor.execute(SystemAction.ENTER)
+    keyboard.enter.assert_called_once_with()

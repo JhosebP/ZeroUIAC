@@ -23,6 +23,7 @@ class SystemAction(str, Enum):
     SAVE = "save"
     SELECT_ALL = "select_all"
     DELETE = "delete"
+    ENTER = "enter"
     SWITCH_APP = "switch_app"
 
     # Navegación

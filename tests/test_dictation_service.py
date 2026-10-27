@@ -14,6 +14,7 @@ def create_service():
     recognizer = MagicMock()
 
     text_controller = MagicMock()
+    text_controller.write_text.return_value = True
 
     mode_manager = VoiceModeManager()
 
@@ -275,3 +276,34 @@ def test_finish_dictation_alternative_phrase():
 
     text_controller.write_text \
         .assert_not_called()
+
+
+def test_failed_insertion_does_not_report_recognized_text():
+    service, recognizer, text_controller, mode_manager = create_service()
+    service.start()
+    recognizer.process_audio.return_value = "hola mundo"
+    text_controller.write_text.return_value = False
+
+    assert service.process_audio(b"audio") is None
+    text_controller.write_text.assert_called_once_with("hola mundo")
+    assert mode_manager.is_dictation_mode()
+
+
+def test_failed_insertion_does_not_block_next_phrase():
+    service, recognizer, text_controller, _ = create_service()
+    service.start()
+    recognizer.process_audio.side_effect = ["primera frase", "segunda frase"]
+    text_controller.write_text.side_effect = [False, True]
+
+    assert service.process_audio(b"first") is None
+    assert service.process_audio(b"second") == "segunda frase"
+    assert text_controller.write_text.call_count == 2
+
+
+def test_blank_recognition_is_not_written():
+    service, recognizer, text_controller, _ = create_service()
+    service.start()
+    recognizer.process_audio.return_value = "   "
+
+    assert service.process_audio(b"audio") is None
+    text_controller.write_text.assert_not_called()

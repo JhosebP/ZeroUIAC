@@ -33,6 +33,15 @@ class AdaptationStepResult:
 
     state_key: tuple
 
+    epsilon: object = None
+    parameters_before: object = None
+    parameters_after: object = None
+    weights_before: object = None
+    weights_after: object = None
+    action_failure_rate: object = None
+    drag_failure_rate: object = None
+    correction_rate: object = None
+
 
 class AdaptiveRuntimeController:
     """
@@ -60,10 +69,13 @@ class AdaptiveRuntimeController:
         q_agent=None,
         reward_calculator=None,
         fatigue_estimator=None,
+        interaction_outcome_tracker=None,
         adaptation_interval_seconds=30.0,
         worker_poll_seconds=1.0,
         min_user_events=1,
         clock=None,
+        on_adaptation=None,
+        system_mode_manager=None,
     ):
 
         if adaptation_interval_seconds < 0:
@@ -94,6 +106,11 @@ class AdaptiveRuntimeController:
         self.action_applier = (
             action_applier
         )
+        self.on_adaptation = on_adaptation
+        self.system_mode_manager = system_mode_manager
+        self._system_generation = (
+            system_mode_manager.generation if system_mode_manager is not None else None
+        )
 
         self.state_builder = (
             state_builder
@@ -113,6 +130,10 @@ class AdaptiveRuntimeController:
         self.fatigue_estimator = (
             fatigue_estimator
             or FatigueEstimator()
+        )
+
+        self.interaction_outcome_tracker = (
+            interaction_outcome_tracker
         )
 
         self.adaptation_interval_seconds = (
@@ -149,6 +170,10 @@ class AdaptiveRuntimeController:
         self._running = False
 
         self._baseline_snapshot = None
+
+        self._baseline_outcome_snapshot = (
+            None
+        )
 
         self._previous_state = None
         self._previous_action = None
@@ -328,10 +353,184 @@ class AdaptiveRuntimeController:
             / sample_delta
         )
 
+    def _get_outcome_snapshot(
+        self
+    ):
+
+        if (
+            self.interaction_outcome_tracker
+            is None
+        ):
+            return {}
+
+        try:
+
+            return (
+                self.interaction_outcome_tracker
+                .snapshot()
+                or {}
+            )
+
+        except Exception:
+
+            return {}
+
+
+    def _counter_delta(
+        self,
+        previous,
+        current,
+        key
+    ):
+
+        previous_value = max(
+            0,
+            int(
+                self._safe_number(
+                    previous.get(
+                        key,
+                        0
+                    )
+                )
+            )
+        )
+
+        current_value = max(
+            0,
+            int(
+                self._safe_number(
+                    current.get(
+                        key,
+                        0
+                    )
+                )
+            )
+        )
+
+        return max(
+            0,
+            current_value
+            - previous_value
+        )
+
+
+    def _window_outcome_rates(
+        self,
+        previous,
+        current
+    ):
+
+        action_attempts = (
+            self._counter_delta(
+                previous,
+                current,
+                "action_attempts"
+            )
+        )
+
+        action_failures = (
+            self._counter_delta(
+                previous,
+                current,
+                "action_failures"
+            )
+        )
+
+        if action_attempts > 0:
+
+            action_failure_rate = (
+                action_failures
+                / action_attempts
+            )
+
+        else:
+
+            action_failure_rate = 0.0
+
+
+        drag_successes = (
+            self._counter_delta(
+                previous,
+                current,
+                "drag_successes"
+            )
+        )
+
+        drag_failures = (
+            self._counter_delta(
+                previous,
+                current,
+                "drag_failures"
+            )
+        )
+
+        completed_drags = (
+            drag_successes
+            + drag_failures
+        )
+
+        if completed_drags > 0:
+
+            drag_failure_rate = (
+                drag_failures
+                / completed_drags
+            )
+
+        else:
+
+            drag_failure_rate = 0.0
+
+
+        cursor_samples = (
+            self._counter_delta(
+                previous,
+                current,
+                "cursor_samples"
+            )
+        )
+
+        corrections = (
+            self._counter_delta(
+                previous,
+                current,
+                "correction_events"
+            )
+        )
+
+        if cursor_samples > 0:
+
+            correction_rate = (
+                corrections
+                / cursor_samples
+            )
+
+        else:
+
+            correction_rate = 0.0
+
+
+        return {
+            "action_failure_rate":
+                action_failure_rate,
+
+            "drag_failure_rate":
+                drag_failure_rate,
+
+            "correction_rate":
+                correction_rate,
+
+            "technical_failures": (
+                action_failures
+                + drag_failures
+            ),
+        }
+
     def _build_reward_context(
         self,
         previous_snapshot,
-        current_snapshot
+        current_snapshot,
+        previous_outcome=None,
+        current_outcome=None
     ):
 
         previous_metrics = (
@@ -466,10 +665,30 @@ class AdaptiveRuntimeController:
             > 0
         )
 
+        previous_outcome = (
+            previous_outcome
+            or {}
+        )
+
+        current_outcome = (
+            current_outcome
+            or {}
+        )
+
+        outcome_rates = (
+            self._window_outcome_rates(
+                previous_outcome,
+                current_outcome
+            )
+        )
+
         return RewardContext(
             success=(
                 has_activity
                 and error_delta == 0
+                and outcome_rates[
+                    "technical_failures"
+                ] == 0
             ),
 
             error=(
@@ -487,12 +706,65 @@ class AdaptiveRuntimeController:
             fatigue_level=(
                 fatigue.score
             ),
+
+            action_failure_rate=(
+                outcome_rates[
+                    "action_failure_rate"
+                ]
+            ),
+
+            drag_failure_rate=(
+                outcome_rates[
+                    "drag_failure_rate"
+                ]
+            ),
+
+            correction_rate=(
+                outcome_rates[
+                    "correction_rate"
+                ]
+            ),
         )
+
+    def _observation_snapshot(self, attribute):
+        """A missing or failing diagnostic source must not block adaptation."""
+        try:
+            manager = getattr(self.action_applier, attribute, None)
+            return manager.snapshot() if manager is not None else None
+        except Exception:
+            return None
 
     def step(
         self,
         force=False
     ):
+        if self.system_mode_manager is None:
+            return self._step_active(force)
+
+        # The shared barrier makes learning and its notification atomic
+        # with respect to suspension, without stopping the worker thread.
+        with self.system_mode_manager.processing() as active:
+            if not active or self._rebaseline_after_system_transition():
+                return None
+            return self._step_active(force)
+
+    def _rebaseline_after_system_transition(self):
+        """Called inside the shared barrier, only while the system is active."""
+        generation = self.system_mode_manager.generation
+        with self._lock:
+            if generation == self._system_generation:
+                return False
+
+            self._baseline_snapshot = self.session_manager.get_snapshot()
+            self._baseline_outcome_snapshot = self._get_outcome_snapshot()
+            self._last_adaptation_time = self._clock()
+            # Do not credit a pre-suspension action with a post-resume reward.
+            self._previous_state = None
+            self._previous_action = None
+            self._system_generation = generation
+            return True
+
+    def _step_active(self, force=False):
         """
         Ejecuta como máximo un ciclo
         de adaptación.
@@ -501,6 +773,10 @@ class AdaptiveRuntimeController:
         snapshot = (
             self.session_manager
             .get_snapshot()
+        )
+
+        outcome_snapshot = (
+            self._get_outcome_snapshot()
         )
 
         if snapshot is None:
@@ -517,6 +793,10 @@ class AdaptiveRuntimeController:
 
                 self._baseline_snapshot = (
                     snapshot
+                )
+
+                self._baseline_outcome_snapshot = (
+                    outcome_snapshot
                 )
 
                 self._last_adaptation_time = (
@@ -565,6 +845,7 @@ class AdaptiveRuntimeController:
             )
 
             reward = None
+            context = None
 
             if (
                 self._previous_state
@@ -576,7 +857,9 @@ class AdaptiveRuntimeController:
                 context = (
                     self._build_reward_context(
                         self._baseline_snapshot,
-                        snapshot
+                        snapshot,
+                        self._baseline_outcome_snapshot,
+                        outcome_snapshot
                     )
                 )
 
@@ -609,12 +892,33 @@ class AdaptiveRuntimeController:
                 )
             )
 
+            parameters_before = self._observation_snapshot("parameters_manager")
+            weights_before = self._observation_snapshot("channel_weights")
             changed = (
                 self.action_applier
                 .apply(
                     action
                 )
             )
+            parameters_after = self._observation_snapshot("parameters_manager")
+            weights_after = self._observation_snapshot("channel_weights")
+
+            # Reuse the reward context; the first step has no reward yet.
+            try:
+                rates = (
+                    {
+                        "action_failure_rate": context.action_failure_rate,
+                        "drag_failure_rate": context.drag_failure_rate,
+                        "correction_rate": context.correction_rate,
+                    }
+                    if context is not None
+                    else self._window_outcome_rates(
+                        self._baseline_outcome_snapshot or {},
+                        outcome_snapshot,
+                    )
+                )
+            except Exception:
+                rates = {}
 
             self._previous_state = (
                 current_state
@@ -628,6 +932,10 @@ class AdaptiveRuntimeController:
                 snapshot
             )
 
+            self._baseline_outcome_snapshot = (
+                outcome_snapshot
+            )
+
             self._last_adaptation_time = (
                 now
             )
@@ -636,7 +944,7 @@ class AdaptiveRuntimeController:
                 reward
             )
 
-            return AdaptationStepResult(
+            result = AdaptationStepResult(
                 action=action,
                 changed=changed,
                 reward=reward,
@@ -646,9 +954,35 @@ class AdaptiveRuntimeController:
                 state_key=(
                     current_state.as_key()
                 ),
+                epsilon=self.q_agent.epsilon,
+                parameters_before=parameters_before,
+                parameters_after=parameters_after,
+                weights_before=weights_before,
+                weights_after=weights_after,
+                action_failure_rate=rates.get("action_failure_rate"),
+                drag_failure_rate=rates.get("drag_failure_rate"),
+                correction_rate=rates.get("correction_rate"),
             )
 
+        # External observation runs after committing the step and outside
+        # the runtime lock. It cannot roll back or interrupt learning.
+        if self.on_adaptation is not None:
+            try:
+                self.on_adaptation(result)
+            except Exception:
+                pass
+        return result
+
     def finalize(self):
+        if self.system_mode_manager is None:
+            return self._finalize_active()
+
+        with self.system_mode_manager.processing() as active:
+            if not active or self._rebaseline_after_system_transition():
+                return None
+            return self._finalize_active()
+
+    def _finalize_active(self):
         """
         Aprende del último intervalo sin
         aplicar una nueva modificación.
@@ -657,6 +991,10 @@ class AdaptiveRuntimeController:
         snapshot = (
             self.session_manager
             .get_snapshot()
+        )
+
+        outcome_snapshot = (
+            self._get_outcome_snapshot()
         )
 
         if snapshot is None:
@@ -695,7 +1033,9 @@ class AdaptiveRuntimeController:
             context = (
                 self._build_reward_context(
                     self._baseline_snapshot,
-                    snapshot
+                    snapshot,
+                    self._baseline_outcome_snapshot,
+                    outcome_snapshot
                 )
             )
 
@@ -719,6 +1059,10 @@ class AdaptiveRuntimeController:
 
             self._baseline_snapshot = (
                 snapshot
+            )
+
+            self._baseline_outcome_snapshot = (
+                outcome_snapshot
             )
 
             self._previous_state = None
@@ -764,6 +1108,10 @@ class AdaptiveRuntimeController:
 
             self._baseline_snapshot = (
                 snapshot
+            )
+
+            self._baseline_outcome_snapshot = (
+                self._get_outcome_snapshot()
             )
 
             self._previous_state = None

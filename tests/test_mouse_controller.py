@@ -1,3 +1,5 @@
+import pyautogui
+
 from unittest.mock import patch
 
 from infrastructure.windows.mouse_controller import (
@@ -101,3 +103,183 @@ def test_stop_drag_without_drag_does_nothing():
         mouse.stop_drag()
 
         mock_mouse_up.assert_not_called()
+
+def test_left_click_releases_active_drag(
+    monkeypatch
+):
+
+    events = []
+
+    monkeypatch.setattr(
+        pyautogui,
+        "mouseDown",
+        lambda button:
+            events.append(
+                ("down", button)
+            )
+    )
+
+    monkeypatch.setattr(
+        pyautogui,
+        "mouseUp",
+        lambda button:
+            events.append(
+                ("up", button)
+            )
+    )
+
+    monkeypatch.setattr(
+        pyautogui,
+        "click",
+        lambda button:
+            events.append(
+                ("click", button)
+            )
+    )
+
+    mouse = MouseController()
+
+    assert (
+        mouse.start_drag()
+        is True
+    )
+
+    assert (
+        mouse.is_dragging()
+        is True
+    )
+
+    mouse.left_click()
+
+    assert (
+        mouse.is_dragging()
+        is False
+    )
+
+    assert events == [
+        ("down", "left"),
+        ("up", "left"),
+        ("click", "left"),
+    ]
+
+
+def test_double_click_releases_active_drag(
+    monkeypatch
+):
+
+    events = []
+
+    monkeypatch.setattr(
+        pyautogui,
+        "mouseDown",
+        lambda button:
+            events.append(
+                ("down", button)
+            )
+    )
+
+    monkeypatch.setattr(
+        pyautogui,
+        "mouseUp",
+        lambda button:
+            events.append(
+                ("up", button)
+            )
+    )
+
+    monkeypatch.setattr(
+        pyautogui,
+        "doubleClick",
+        lambda button, interval:
+            events.append(
+                ("double", button)
+            )
+    )
+
+    mouse = MouseController()
+
+    mouse.start_drag()
+
+    mouse.double_click()
+
+    assert (
+        mouse.is_dragging()
+        is False
+    )
+
+    assert events == [
+        ("down", "left"),
+        ("up", "left"),
+        ("double", "left"),
+    ]
+
+
+def test_drag_can_start_again_after_click(
+    monkeypatch
+):
+
+    downs = []
+
+    monkeypatch.setattr(
+        pyautogui,
+        "mouseDown",
+        lambda button:
+            downs.append(button)
+    )
+
+    monkeypatch.setattr(
+        pyautogui,
+        "mouseUp",
+        lambda button:
+            None
+    )
+
+    monkeypatch.setattr(
+        pyautogui,
+        "click",
+        lambda button:
+            None
+    )
+
+    mouse = MouseController()
+
+    assert (
+        mouse.start_drag()
+        is True
+    )
+
+    mouse.left_click()
+
+    assert (
+        mouse.start_drag()
+        is True
+    )
+
+    assert downs == [
+        "left",
+        "left",
+    ]
+
+
+def test_repeated_start_drag_returns_false(
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        pyautogui,
+        "mouseDown",
+        lambda button:
+            None
+    )
+
+    mouse = MouseController()
+
+    assert (
+        mouse.start_drag()
+        is True
+    )
+
+    assert (
+        mouse.start_drag()
+        is False
+    )

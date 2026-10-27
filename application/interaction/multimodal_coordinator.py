@@ -5,8 +5,11 @@ from domain.commands.system_actions import (
 )
 
 from domain.events.event_types import (
-    EventType
+    EventType,
+    EventSource,
 )
+from application.interaction.system_mode_manager import SystemModeManager
+from modules.voice.voice_commands import SYSTEM_CONTROL_COMMANDS
 
 #3ra capa de abstracción para los eventos de interacción del usuario.
 #Agrupa y coordina eventos multimodales para su ejecución.
@@ -62,6 +65,9 @@ class MultimodalCoordinator:
         SystemAction.DELETE:
             "Eliminar",
 
+        SystemAction.ENTER:
+            "Enter ejecutado",
+
         SystemAction.SWITCH_APP:
             "Cambiar aplicación",
 
@@ -88,12 +94,15 @@ class MultimodalCoordinator:
         zoom_service=None,
         audio_feedback_service=None,
         session_manager=None,
-        fusion_window=0.08
+        interaction_outcome_tracker=None,
+        fusion_window=0.08,
+        system_mode_manager=None,
     ):
 
         self.event_bus = (
             event_bus
         )
+        self.system_mode_manager = system_mode_manager or SystemModeManager()
 
         self.fusion_engine = (
             fusion_engine
@@ -123,18 +132,29 @@ class MultimodalCoordinator:
             session_manager
         )
 
+        self.interaction_outcome_tracker = (
+            interaction_outcome_tracker
+        )
+
         self.fusion_window = (
             fusion_window
         )
 
         self._pending_events = []
+        self._pending_generations = {}
 
         self._lock = (
             threading.RLock()
         )
 
         self._timer = None
+        self._stopped = False
+        self._stop_complete = False
+        self._stop_thread = None
+        self._active_flush_threads = []
+        self._condition = threading.Condition(self._lock)
 
+        # Publish only after all synchronization state is initialized.
         self.event_bus.subscribe_all(
             self._receive_event
         )
@@ -148,11 +168,31 @@ class MultimodalCoordinator:
         de cualquier canal.
         """
 
+        # Do not wait for the admission barrier after shutdown has begun.
         with self._lock:
+            if self._stopped:
+                return
+
+        generation = self.system_mode_manager.generation
+        if not self._is_system_control(event):
+            with self.system_mode_manager.processing(event.timestamp) as active:
+                if not active:
+                    return
+                generation = self.system_mode_manager.generation
+
+        with self._lock:
+
+            if self._stopped:
+                return
+
+            if self._is_system_control(event) and event.payload['command'] == 'zero ui suspender':
+                self._pending_events.clear()
+                self._pending_generations.clear()
 
             self._pending_events.append(
                 event
             )
+            self._pending_generations[id(event)] = generation
 
             if self._timer is None:
 
@@ -196,6 +236,72 @@ class MultimodalCoordinator:
                 f"{error}"
             )
 
+    def _record_action_outcome(
+        self,
+        action,
+        success
+    ):
+        """
+        Registra el resultado técnico
+        de una acción.
+    
+        Un fallo del tracker nunca debe
+        detener la interacción principal.
+        """
+    
+        if (
+            self.interaction_outcome_tracker
+            is None
+        ):
+            return
+    
+        try:
+        
+            self.interaction_outcome_tracker \
+                .record_action_result(
+                    action,
+                    success
+                )
+    
+        except Exception as error:
+        
+            print(
+                "ERROR RESULTADO INTERACCION: "
+                f"{type(error).__name__}: "
+                f"{error}"
+            )
+    
+    
+    def _record_cursor_outcome(
+        self,
+        event
+    ):
+        """
+        Registra el patrón de movimiento
+        ejecutado por el cursor.
+        """
+    
+        if (
+            self.interaction_outcome_tracker
+            is None
+        ):
+            return
+    
+        try:
+        
+            self.interaction_outcome_tracker \
+                .record_cursor_event(
+                    event
+                )
+    
+        except Exception as error:
+        
+            print(
+                "ERROR RESULTADO CURSOR: "
+                f"{type(error).__name__}: "
+                f"{error}"
+            )
+
     def _flush(self):
         """
         Procesa conjuntamente los eventos
@@ -204,52 +310,98 @@ class MultimodalCoordinator:
         """
 
         with self._lock:
+            if self._stopped:
+                return
+        batch_generation = self.system_mode_manager.generation
+        thread_id = threading.get_ident()
+        with self._condition:
+            if self._stopped:
+                return
 
-            events = list(
-                self._pending_events
-            )
-
+            events = list(self._pending_events)
+            generations = self._pending_generations.copy()
             self._pending_events.clear()
-
+            self._pending_generations.clear()
             self._timer = None
+            if not events:
+                return
 
-        if not events:
-            return
+            self._active_flush_threads.append(thread_id)
 
-        resolved_events = (
-            self.fusion_engine
-            .process_events(
-                events
-            )
+        try:
+            controls = [event for event in events if self._is_system_control(event)]
+            for event in controls:
+                with self._lock:
+                    if self._stopped:
+                        return
+                self._execute_system_control(
+                    event, generations.get(id(event), batch_generation),
+                )
+
+            admitted = []
+            for event in events:
+                if self._is_system_control(event):
+                    continue
+                with self.system_mode_manager.processing(
+                    event.timestamp, generations.get(id(event), batch_generation),
+                ) as active:
+                    if active:
+                        admitted.append(event)
+            resolved_events = self.fusion_engine.process_events(admitted) if admitted else []
+
+            for event in resolved_events:
+                with self._lock:
+                    if self._stopped:
+                        break
+
+                with self.system_mode_manager.processing(
+                    event.timestamp, generations.get(id(event), batch_generation),
+                ) as active:
+                    if not active:
+                        continue
+                    self._record_session_event(event)
+                    try:
+                        self._execute_event(event)
+                    except Exception as error:
+                        print(
+                            "ERROR MULTIMODAL: "
+                            f"{type(error).__name__}: {error}"
+                        )
+                        self._show_error_feedback("No se pudo ejecutar la acción")
+        finally:
+            # Includes fusion, execution, outcomes and feedback failures.
+            with self._condition:
+                self._active_flush_threads.remove(thread_id)
+                self._condition.notify_all()
+
+    @staticmethod
+    def _is_system_control(event):
+        return (
+            event.source == EventSource.SYSTEM
+            and event.event_type == EventType.STATUS
+            and event.payload.get('level') == 'system_control'
+            and event.payload.get('command') in SYSTEM_CONTROL_COMMANDS
         )
 
-        for event in resolved_events:
-
-            self._record_session_event(
-                event
-            )
-
+    def _execute_system_control(self, event, generation=None):
+        command = event.payload['command']
+        with self.system_mode_manager.processing(event.timestamp, generation) as active:
+            if not active and command not in ('zero ui activar', 'zero ui suspender'):
+                return
             try:
-
-                self._execute_event(
-                    event
-                )
-
-            except Exception as error:
-
-                print(
-                    "ERROR MULTIMODAL: "
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                )
-
-                self._show_error_feedback(
-                    "No se pudo ejecutar la acción"
-                )
+                if self.overlay_service is not None:
+                    if command == 'zero ui mostrar comandos':
+                        self.overlay_service.show_commands()
+                    elif command == 'zero ui ocultar comandos':
+                        self.overlay_service.hide_commands()
+                self._show_feedback(SYSTEM_CONTROL_COMMANDS[command], 'system_control')
+            except Exception:
+                pass
 
     def _show_feedback(
         self,
-        text
+        text,
+        feedback_type="success"
     ):
         """
         Solicita mostrar una confirmación
@@ -263,10 +415,11 @@ class MultimodalCoordinator:
 
             return
 
-        self.overlay_service \
-            .show_feedback(
-                text
-            )
+        try:
+            self.overlay_service.show_feedback(text, feedback_type=feedback_type)
+        except Exception:
+            # Visual feedback must not interrupt command execution.
+            pass
 
     def _show_error_feedback(
         self,
@@ -284,10 +437,10 @@ class MultimodalCoordinator:
     
             return
     
-        self.overlay_service \
-            .show_error_feedback(
-                text
-            )
+        try:
+            self.overlay_service.show_error_feedback(text)
+        except Exception:
+            pass
 
     def _play_audio_feedback(self):
         """
@@ -310,10 +463,22 @@ class MultimodalCoordinator:
         self,
         event
     ):
+        with self.system_mode_manager.processing(event.timestamp) as active:
+            if active:
+                self._execute_active_event(event)
+
+    def _execute_active_event(
+        self,
+        event
+    ):
         """
         Ejecuta el evento aprobado
         por FusionEngine.
         """
+
+        with self._lock:
+            if self._stopped:
+                return
 
         if (
             event.event_type
@@ -322,6 +487,10 @@ class MultimodalCoordinator:
 
             if event.action is None:
                 return
+
+            mode_feedback = (
+                "success" if event.source == EventSource.GESTURE else "mode"
+            )
 
             # -----------------------------
             # DIBUJO
@@ -347,13 +516,13 @@ class MultimodalCoordinator:
                 ):
 
                     self._show_feedback(
-                        "Dibujo activado"
+                        "Dibujo activado", feedback_type=mode_feedback
                     )
 
                 else:
 
                     self._show_feedback(
-                        "Dibujo desactivado"
+                        "Dibujo desactivado", feedback_type=mode_feedback
                     )
 
                 self._play_audio_feedback()
@@ -387,7 +556,7 @@ class MultimodalCoordinator:
                         .toggle_erase()
             
                 self._show_feedback(
-                    "Borrador activado"
+                    "Borrador activado", feedback_type=mode_feedback
                 )
             
                 self._play_audio_feedback()
@@ -418,7 +587,7 @@ class MultimodalCoordinator:
                         .toggle_erase()
             
                 self._show_feedback(
-                    "Borrador desactivado"
+                    "Borrador desactivado", feedback_type=mode_feedback
                 )
             
                 self._play_audio_feedback()
@@ -449,13 +618,13 @@ class MultimodalCoordinator:
                 ):
 
                     self._show_feedback(
-                        "Borrador activado"
+                        "Borrador activado", feedback_type=mode_feedback
                     )
 
                 else:
 
                     self._show_feedback(
-                        "Borrador desactivado"
+                        "Borrador desactivado", feedback_type=mode_feedback
                     )
 
                 self._play_audio_feedback()
@@ -530,9 +699,43 @@ class MultimodalCoordinator:
             # ACCIONES NORMALES
             # -----------------------------
 
-            self.action_executor.execute(
-                event.action
+            try:
+
+                success = (
+                    self.action_executor
+                    .execute(
+                        event.action
+                    )
+                )
+
+            except Exception:
+            
+                self._record_action_outcome(
+                    event.action,
+                    False
+                )
+
+                raise
+            
+            
+            success = bool(
+                success
             )
+
+            self._record_action_outcome(
+                event.action,
+                success
+            )
+
+
+            if not success:
+            
+                self._show_error_feedback(
+                    "Acción no ejecutada"
+                )
+
+                return
+
 
             label = (
                 self.ACTION_LABELS
@@ -542,7 +745,7 @@ class MultimodalCoordinator:
             )
 
             if label is not None:
-
+            
                 self._show_feedback(
                     label
                 )
@@ -585,12 +788,12 @@ class MultimodalCoordinator:
                 return
         
             if (
-                level == "success"
+                level in ("success", "mode")
                 and message
             ):
         
                 self._show_feedback(
-                    message
+                    message, feedback_type=level
                 )
         
                 if (
@@ -636,10 +839,18 @@ class MultimodalCoordinator:
                     )
                 )
 
-                self.mouse.move_relative(
-                    dx,
-                    dy
+                result = (
+                    self.mouse.move_relative(
+                        dx,
+                        dy
+                    )
                 )
+
+                if result is not False:
+                
+                    self._record_cursor_outcome(
+                        event
+                    )
 
                 return
 
@@ -662,22 +873,75 @@ class MultimodalCoordinator:
                     and y is not None
                 ):
 
-                    self.mouse.move_to(
-                        x,
-                        y
+                    result = (
+                        self.mouse.move_to(
+                            x,
+                            y
+                        )
                     )
 
+                    if result is not False:
+                    
+                        self._record_cursor_outcome(
+                            event
+                        )
+
     def stop(self):
-        """
-        Cancela el temporizador pendiente.
-        """
+        """Reject new events and wait for active batches before finalizing.
 
-        with self._lock:
+        Must be called outside a flush callback: a worker cannot wait for
+        its own execution to finish.
+        """
+        thread_id = threading.get_ident()
+        with self._condition:
+            if (
+                thread_id in self._active_flush_threads
+                or thread_id == self._stop_thread
+            ):
+                raise RuntimeError(
+                    "stop() no puede ejecutarse desde un callback activo "
+                    "del coordinador."
+                )
 
+            if self._stopped:
+                self._condition.wait_for(lambda: self._stop_complete)
+                return
+
+            self._stopped = True
+            self._stop_thread = thread_id
             if self._timer is not None:
-
                 self._timer.cancel()
-
                 self._timer = None
-
             self._pending_events.clear()
+            self._pending_generations.clear()
+
+        try:
+            # Do not hold the coordinator lock while calling the EventBus.
+            try:
+                self.event_bus.unsubscribe_all(self._receive_event)
+            except Exception as error:
+                # The stopped guard also rejects callbacks already copied
+                # by EventBus.publish() before unsubscription.
+                print(
+                    "ERROR DESUSCRIPCION MULTIMODAL: "
+                    f"{type(error).__name__}: {error}"
+                )
+
+            with self._condition:
+                self._condition.wait_for(
+                    lambda: not self._active_flush_threads
+                )
+
+            if self.interaction_outcome_tracker is not None:
+                try:
+                    self.interaction_outcome_tracker.finalize_pending_drag()
+                except Exception as error:
+                    print(
+                        "ERROR CIERRE INTERACCION: "
+                        f"{type(error).__name__}: {error}"
+                    )
+        finally:
+            with self._condition:
+                self._stop_complete = True
+                self._stop_thread = None
+                self._condition.notify_all()

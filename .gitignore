@@ -129,3 +129,5 @@ metrics/
 .env
 .env.*
 !.env.example
+
+data/adaptation/

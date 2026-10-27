@@ -7,12 +7,12 @@ class RewardContext:
     Señales utilizadas para calcular
     la recompensa adaptativa.
 
-    Todos los valores representan
-    información del resultado de una
-    interacción, no acciones de Windows.
+    Incluye métricas operativas y
+    resultados técnicos recientes.
     """
 
     success: bool = False
+
     error: bool = False
 
     latency_seconds: float = 0.0
@@ -20,6 +20,12 @@ class RewardContext:
     switch_rate: float = 0.0
 
     fatigue_level: float = 0.0
+
+    action_failure_rate: float = 0.0
+
+    drag_failure_rate: float = 0.0
+
+    correction_rate: float = 0.0
 
 
 class RewardCalculator:
@@ -42,6 +48,12 @@ class RewardCalculator:
     MAX_SWITCH_PENALTY = 0.50
 
     MAX_FATIGUE_PENALTY = 1.0
+
+    MAX_ACTION_FAILURE_PENALTY = 1.0
+
+    MAX_DRAG_FAILURE_PENALTY = 1.0
+    
+    MAX_CORRECTION_PENALTY = 0.75
 
     MIN_REWARD = -4.0
     MAX_REWARD = 2.0
@@ -143,6 +155,69 @@ class RewardCalculator:
             * self.MAX_FATIGUE_PENALTY
         )
 
+    def _bounded_rate(
+        self,
+        value
+    ):
+
+        try:
+
+            value = float(
+                value
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            return 0.0
+
+        return self._clamp(
+            value,
+            0.0,
+            1.0
+        )
+
+
+    def _action_failure_penalty(
+        self,
+        rate
+    ):
+
+        return (
+            self._bounded_rate(
+                rate
+            )
+            * self.MAX_ACTION_FAILURE_PENALTY
+        )
+
+
+    def _drag_failure_penalty(
+        self,
+        rate
+    ):
+
+        return (
+            self._bounded_rate(
+                rate
+            )
+            * self.MAX_DRAG_FAILURE_PENALTY
+        )
+
+
+    def _correction_penalty(
+        self,
+        rate
+    ):
+
+        return (
+            self._bounded_rate(
+                rate
+            )
+            * self.MAX_CORRECTION_PENALTY
+        )
+
     def calculate(
         self,
         context,
@@ -191,6 +266,24 @@ class RewardCalculator:
         reward -= (
             self._fatigue_penalty(
                 context.fatigue_level
+            )
+        )
+
+        reward -= (
+            self._action_failure_penalty(
+                context.action_failure_rate
+            )
+        )
+        
+        reward -= (
+            self._drag_failure_penalty(
+                context.drag_failure_rate
+            )
+        )
+        
+        reward -= (
+            self._correction_penalty(
+                context.correction_rate
             )
         )
 

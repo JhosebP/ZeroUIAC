@@ -43,12 +43,17 @@ class ActionExecutor:
             return True
 
         if action == SystemAction.START_DRAG:
-            self.mouse.start_drag()
-            return True
-
+                
+            return bool(
+                self.mouse.start_drag()
+            )
+        
+        
         if action == SystemAction.STOP_DRAG:
-            self.mouse.stop_drag()
-            return True
+        
+            return bool(
+                self.mouse.stop_drag()
+            )
 
         if action == SystemAction.COPY:
             self.keyboard.copy()
@@ -76,6 +81,10 @@ class ActionExecutor:
 
         if action == SystemAction.DELETE:
             self.keyboard.delete_selected()
+            return True
+
+        if action == SystemAction.ENTER:
+            self.keyboard.enter()
             return True
 
         if action == SystemAction.SWITCH_APP:

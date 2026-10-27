@@ -206,3 +206,17 @@ def test_partial_audio_is_not_an_error(
         recognizer.last_status
         == VoiceRecognizer.STATUS_PARTIAL
     )
+
+def test_enter_is_passed_to_vosk_grammar_and_recognized():
+    with patch("modules.voice.recognizer.Path.exists", return_value=True), \
+         patch("modules.voice.recognizer.Model"), \
+         patch("modules.voice.recognizer.KaldiRecognizer") as kaldi:
+        kaldi.return_value.AcceptWaveform.return_value = True
+        kaldi.return_value.Result.return_value = json.dumps({
+            "text": "enter", "result": [{"word": "enter", "conf": 0.95}],
+        })
+        recognizer = VoiceRecognizer()
+        grammar = json.loads(kaldi.call_args.args[2])
+        assert "enter" in grammar
+        assert recognizer.process_audio(b"audio") == "enter"
+        assert recognizer.last_status == VoiceRecognizer.STATUS_RECOGNIZED

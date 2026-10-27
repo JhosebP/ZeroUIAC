@@ -57,6 +57,9 @@ class KeyboardController:
             "delete"
         )
 
+    def enter(self):
+        pyautogui.press("enter")
+
     def switch_app(self):
         """
         Abre la Vista de tareas de Windows.

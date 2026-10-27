@@ -39,12 +39,17 @@ class AnnotationOverlay:
         eraser_radius=25,
         refresh_ms=16,
         max_draw_jump=80,
-        feedback_duration=1.5
+        feedback_duration=1.5,
+        system_mode_manager=None,
     ):
 
         self.line_width = (
             line_width
         )
+        self.system_mode_manager = system_mode_manager
+        self._commands_visible = False
+        self._commands_version = 0
+        self._processed_commands_version = -1
 
         self.eraser_radius = (
             eraser_radius
@@ -209,6 +214,72 @@ class AnnotationOverlay:
 
             self._clear_version += 1
 
+    @property
+    def commands_visible(self):
+        with self._lock:
+            return self._commands_visible
+
+    def show_commands(self):
+        with self._lock:
+            if not self._commands_visible:
+                self._commands_visible = True
+                self._commands_version += 1
+
+    def hide_commands(self):
+        with self._lock:
+            if self._commands_visible:
+                self._commands_visible = False
+                self._commands_version += 1
+
+    def _sync_commands_panel(self):
+        # All canvas operations stay on the existing Tk overlay thread.
+        with self._lock:
+            visible = self._commands_visible
+            version = self._commands_version
+        if version != self._processed_commands_version and self._canvas is not None:
+            try:
+                self._canvas.delete('commands')
+                if visible:
+                    self._render_commands()
+            except Exception:
+                # An unavailable help panel must not stop the overlay loop.
+                pass
+            self._processed_commands_version = version
+        return visible
+
+    def _render_commands(self):
+        from presentation.overlay.command_help import get_command_groups
+
+        width = ctypes.windll.user32.GetSystemMetrics(self.SM_CXSCREEN)
+        height = ctypes.windll.user32.GetSystemMetrics(1)
+        panel_width = min(1200, width - 40)
+        left = -self._virtual_left + (width - panel_width) // 2
+        top = -self._virtual_top + 105
+        bottom = -self._virtual_top + height - 25
+        column_width = panel_width / 3
+        font_size = max(10, min(14, int((height - 220) / 36)))
+        self._canvas.create_rectangle(
+            left, top, left + panel_width, bottom,
+            fill='#172536', outline='#87CEFA', width=2, tags=('commands',),
+        )
+        self._canvas.create_text(
+            left + panel_width / 2, top + 22,
+            text='COMANDOS ZEROUI', fill='white',
+            font=('Segoe UI', font_size + 2, 'bold'), tags=('commands',),
+        )
+        for index, (title, entries) in enumerate(get_command_groups()):
+            x = left + index * column_width + 16
+            self._canvas.create_text(
+                x, top + 52, text=title, anchor='nw', fill='#87CEFA',
+                font=('Segoe UI', font_size, 'bold'),
+                width=column_width - 32, tags=('commands',),
+            )
+            self._canvas.create_text(
+                x, top + 85, text='\n'.join(entries), anchor='nw', fill='white',
+                font=('Segoe UI', font_size), width=column_width - 32,
+                tags=('commands',),
+            )
+
     def show_feedback(
         self,
         text,
@@ -236,6 +307,8 @@ class AnnotationOverlay:
 
         if feedback_type not in (
             "success",
+            "mode",
+            "system_control",
             "error"
         ):
 
@@ -615,6 +688,13 @@ class AnnotationOverlay:
             self._root = None
 
     def _tick(self):
+        if self.system_mode_manager is not None:
+            with self.system_mode_manager.processing() as active:
+                self._tick_with_state(active)
+        else:
+            self._tick_with_state(True)
+
+    def _tick_with_state(self, system_active):
         """
         Actualiza:
 
@@ -644,6 +724,7 @@ class AnnotationOverlay:
 
             active = (
                 self._active
+                and system_active
             )
 
             mode = (
@@ -669,6 +750,8 @@ class AnnotationOverlay:
             feedback_version = (
                 self._feedback_version
             )
+
+        commands_visible = self._sync_commands_panel()
 
         feedback_visible = (
             feedback_text is not None
@@ -724,6 +807,7 @@ class AnnotationOverlay:
         should_show_overlay = (
             active
             or feedback_visible
+            or commands_visible
         )
 
         if not should_show_overlay:
@@ -786,6 +870,9 @@ class AnnotationOverlay:
             else:
 
                 self._last_point = None
+
+            if commands_visible and self._canvas is not None:
+                self._canvas.tag_raise('commands')
 
             if (
                 feedback_visible
@@ -851,6 +938,7 @@ class AnnotationOverlay:
             "feedback"
         )
 
+        foreground = "white"
         if feedback_type == "error":
 
             background = (
@@ -858,6 +946,16 @@ class AnnotationOverlay:
             )
 
             icon = "✕"
+
+        elif feedback_type == "mode":
+            background = "#87CEFA"
+            foreground = "#102A43"
+            icon = "ℹ"
+
+        elif feedback_type == "system_control":
+            background = "#F9D65C"
+            foreground = "#302500"
+            icon = "ℹ"
 
         else:
 
@@ -926,7 +1024,7 @@ class AnnotationOverlay:
                 f"{icon} {text}"
             ),
             anchor="w",
-            fill="white",
+            fill=foreground,
             font=(
                 "Segoe UI",
                 14,

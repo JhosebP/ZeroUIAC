@@ -18,8 +18,11 @@ from modules.voice.recognizer import (
 )
 
 from modules.voice.voice_commands import (
-    VOICE_ACTION_MAP
+    VOICE_ACTION_MAP,
+    SYSTEM_CONTROL_COMMANDS,
 )
+
+from application.interaction.system_mode_manager import SystemModeManager
 
 from application.interaction.dictation_service import (
     DictationService
@@ -64,11 +67,13 @@ class VoiceControlService:
         calibration_profile,
         dictation_service,
         voice_mode_manager,
-        zoom_mode_manager=None
+        zoom_mode_manager=None,
+        system_mode_manager=None,
     ):
         self.event_bus = (
             event_bus
         )
+        self.system_mode_manager = system_mode_manager or SystemModeManager()
 
         self.profile = (
             calibration_profile
@@ -137,15 +142,49 @@ class VoiceControlService:
             source=EventSource.VOICE,
             event_type=EventType.STATUS,
             payload={
-                "level": "success",
+                "level": "mode",
                 "message": message,
                 "reason": reason
             }
         )
 
-        self.event_bus.publish(
-            event
+        try:
+            self.event_bus.publish(event)
+        except Exception:
+            # A failed status notification must not undo a mode change.
+            pass
+
+    def _handle_system_control(self, command, recognizer):
+        if command not in SYSTEM_CONTROL_COMMANDS:
+            return False
+        if self.system_mode_manager.is_suspended() and command != "zero ui activar":
+            return False
+
+        if command == "zero ui suspender":
+            self.system_mode_manager.suspend()
+        elif command == "zero ui activar":
+            self.system_mode_manager.activate()
+
+        if command in ("zero ui suspender", "zero ui activar"):
+            recognizer.reset()
+            # Discard buffered dictation while preserving its selected mode.
+            self.dictation_service.recognizer.reset()
+
+        # UI controls are SYSTEM status, never technical Windows actions.
+        event = InteractionEvent(
+            source=EventSource.SYSTEM,
+            event_type=EventType.STATUS,
+            payload={
+                "level": "system_control",
+                "command": command,
+                "message": SYSTEM_CONTROL_COMMANDS[command],
+            },
         )
+        try:
+            self.event_bus.publish(event)
+        except Exception:
+            pass
+        return True
 
     def _process_command_mode(
         self,
@@ -215,6 +254,9 @@ class VoiceControlService:
 
             return None
 
+        if self._handle_system_control(command, recognizer):
+            return command
+
         print(
             f"Comando reconocido: "
             f"{command}"
@@ -228,6 +270,11 @@ class VoiceControlService:
             recognizer.reset()
 
             self.dictation_service.start()
+
+            self._publish_voice_feedback(
+                message="Dictado activado",
+                reason="dictation_mode_enabled",
+            )
 
             print(
                 "Modo dictado activado."
@@ -245,7 +292,7 @@ class VoiceControlService:
             self.zoom_mode_manager.enable()
         
             self._publish_voice_feedback(
-                message="Modo zoom activado",
+                message="Zoom activado",
                 reason="zoom_mode_enabled"
             )
         
@@ -264,7 +311,7 @@ class VoiceControlService:
             self.zoom_mode_manager.disable()
         
             self._publish_voice_feedback(
-                message="Modo zoom desactivado",
+                message="Zoom desactivado",
                 reason="zoom_mode_disabled"
             )
         
@@ -331,12 +378,21 @@ class VoiceControlService:
         if result is None:
             return None
 
+        if result in SYSTEM_CONTROL_COMMANDS:
+            self._handle_system_control(result, recognizer)
+            return result
+
         if (
             result
             == DictationService.EXIT_PHRASE
         ):
 
             recognizer.reset()
+
+            self._publish_voice_feedback(
+                message="Dictado desactivado",
+                reason="dictation_mode_disabled",
+            )
 
             print(
                 "Modo dictado finalizado."
@@ -365,6 +421,18 @@ class VoiceControlService:
         el audio según el modo actual.
         """
 
+        with self.system_mode_manager.processing() as active:
+            if not active:
+                # Keep the command recognizer/microphone alive. All other
+                # recognized phrases and recognition errors stay silent.
+                command = recognizer.process_audio(audio)
+                if command == "zero ui activar":
+                    self._handle_system_control(command, recognizer)
+                    return command
+                return None
+            return self._process_active_audio(audio, recognizer)
+
+    def _process_active_audio(self, audio, recognizer):
         if (
             self.voice_mode_manager
             .is_dictation_mode()

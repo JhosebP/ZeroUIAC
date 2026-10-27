@@ -339,3 +339,54 @@ def test_process_limb_passes_adaptive_factor_to_mapper():
             800,
             sensitivity_factor=1.20
         )
+
+def test_missing_landmarks_resets_head_mapper_without_publishing():
+    service = create_service_without_camera()
+    service.face_tracker.get_landmarks.return_value = None
+
+    service._process_head(MagicMock())
+
+    service.head_mapper.reset.assert_called_once_with()
+    service.head_mapper.calculate.assert_not_called()
+    service.head_pose.estimate.assert_not_called()
+    service.event_bus.publish.assert_not_called()
+
+
+def test_missing_pose_resets_head_mapper_without_publishing():
+    service = create_service_without_camera()
+    service.face_tracker.get_landmarks.return_value = object()
+    service.head_pose.estimate.return_value = None
+    frame = SimpleNamespace(shape=(720, 1280, 3))
+
+    service._process_head(frame)
+
+    service.head_mapper.reset.assert_called_once_with()
+    service.head_mapper.calculate.assert_not_called()
+    service.event_bus.publish.assert_not_called()
+
+
+def test_recovered_face_starts_head_smoothing_from_zero():
+    from modules.vision.head_cursor_mapper import HeadCursorMapper
+
+    for missing_landmarks in (True, False):
+        service = create_service_without_camera()
+        service.head_mapper = HeadCursorMapper()
+        for _ in range(5):
+            service.head_mapper.calculate(12.0, 12.0, 0.0, 0.0)
+        service.face_tracker.get_landmarks.return_value = (
+            None if missing_landmarks else object()
+        )
+        service.head_pose.estimate.return_value = None
+        frame = SimpleNamespace(shape=(720, 1280, 3))
+
+        service._process_head(frame)
+        assert service.head_mapper.previous_dx == 0.0
+        assert service.head_mapper.previous_dy == 0.0
+        service.event_bus.publish.assert_not_called()
+
+        service.face_tracker.get_landmarks.return_value = object()
+        service.head_pose.estimate.return_value = {'yaw': -12.0, 'pitch': -12.0}
+        service._process_head(frame)
+
+        event = service.event_bus.publish.call_args.args[0]
+        assert event.payload == {'mode': 'relative', 'dx': 7, 'dy': -7}

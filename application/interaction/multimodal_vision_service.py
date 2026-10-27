@@ -65,9 +65,11 @@ class MultimodalVisionService:
         mouse_controller,
         calibration_service,
         zoom_mode_manager=None,
-        adaptive_parameters_manager=None
+        adaptive_parameters_manager=None,
+        system_mode_manager=None,
     ):
         self.event_bus = event_bus
+        self.system_mode_manager = system_mode_manager
 
         self.mouse = (
             mouse_controller
@@ -256,6 +258,13 @@ class MultimodalVisionService:
         self,
         frame
     ):
+        state = getattr(self, 'system_mode_manager', None)
+        if state is not None and state.is_suspended():
+            self.head_mapper.reset()
+            self.head_zoom_detector.reset()
+            self.pose_history.clear()
+            return
+
         results = (
             self.face_tracker
             .process_frame(frame)
@@ -294,6 +303,8 @@ class MultimodalVisionService:
         )
 
         if pose is None:
+
+            self.head_mapper.reset()
 
             self.head_zoom_detector.reset()
 
@@ -511,6 +522,17 @@ class MultimodalVisionService:
         self,
         frame
     ):
+        state = getattr(self, 'system_mode_manager', None)
+        if state is not None and state.is_suspended():
+            self.limb_mapper.reset()
+            self.gesture_detector.reset()
+            self.hand_stable_frames = 0
+            self.last_hand_seen_time = 0.0
+            self.last_limb_position = None
+            self.smoothed_hand_x = None
+            self.smoothed_hand_y = None
+            return
+
         results = (
             self.hand_tracker
             .process_frame(frame)

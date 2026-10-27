@@ -144,3 +144,24 @@ def test_delete_selected():
             .assert_called_once_with(
                 "delete"
             )
+
+def test_enter_presses_exactly_once_without_hotkey():
+    keyboard = KeyboardController()
+    with patch("infrastructure.windows.keyboard_controller.pyautogui.press") as press, \
+         patch("infrastructure.windows.keyboard_controller.pyautogui.hotkey") as hotkey:
+        keyboard.enter()
+        press.assert_called_once_with("enter")
+        hotkey.assert_not_called()
+
+
+def test_enter_press_exception_propagates():
+    import pytest
+
+    keyboard = KeyboardController()
+    with patch(
+        "infrastructure.windows.keyboard_controller.pyautogui.press",
+        side_effect=RuntimeError("Press failed"),
+    ) as press:
+        with pytest.raises(RuntimeError, match="Press failed"):
+            keyboard.enter()
+        press.assert_called_once_with("enter")

@@ -8,9 +8,9 @@ from modules.voice.voice_commands import (
 )
 
 
-def test_exactly_twenty_commands():
+def test_exactly_twenty_one_commands():
 
-    assert len(VOICE_COMMANDS) == 20
+    assert len(VOICE_COMMANDS) == 21
 
 
 def test_all_commands_are_mapped():
@@ -138,7 +138,7 @@ def test_delete_replaces_old_borrar_command():
 
     assert "eliminar" in VOICE_COMMANDS
     assert "borrar" not in VOICE_COMMANDS
-    assert len(VOICE_COMMANDS) == 20
+    assert len(VOICE_COMMANDS) == 21
 
 
 def test_zoom_commands_are_mapped():
@@ -152,3 +152,12 @@ def test_zoom_commands_are_mapped():
         VOICE_ACTION_MAP["alejar"]
         == SystemAction.ZOOM_OUT
     )
+
+
+def test_enter_is_execution_command_in_closed_grammar():
+    from modules.voice.voice_commands import VOICE_GRAMMAR, VOICE_MODE_COMMANDS
+
+    assert VOICE_COMMANDS.count("enter") == 1
+    assert VOICE_GRAMMAR.count("enter") == 1
+    assert "enter" not in VOICE_MODE_COMMANDS
+    assert VOICE_ACTION_MAP["enter"] == SystemAction.ENTER

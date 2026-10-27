@@ -250,63 +250,113 @@ class MouseController:
 
             return False
 
+    def _release_drag_if_needed(self):
+        """
+        Libera un arrastre activo antes de
+        ejecutar otra acción de botón.
+    
+        Evita que el estado interno quede
+        diferente al estado físico de Windows.
+        """
+    
+        if not self.dragging:
+            return False
+    
+        pyautogui.mouseUp(
+            button="left"
+        )
+    
+        self.dragging = False
+    
+        return True
+    
+    
     def left_click(self):
         """
         Ejecuta clic izquierdo.
+    
+        Si existía un arrastre activo,
+        primero lo finaliza.
         """
-
+    
+        self._release_drag_if_needed()
+    
         pyautogui.click(
             button="left"
         )
-
+    
+        return True
+    
+    
     def right_click(self):
         """
         Ejecuta clic derecho.
+    
+        Si existía un arrastre activo,
+        primero lo finaliza.
         """
-
+    
+        self._release_drag_if_needed()
+    
         pyautogui.click(
             button="right"
         )
-
+    
+        return True
+    
+    
     def double_click(self):
         """
         Ejecuta doble clic izquierdo.
+    
+        Si existía un arrastre activo,
+        primero lo finaliza.
         """
-
+    
+        self._release_drag_if_needed()
+    
         pyautogui.doubleClick(
             button="left",
             interval=0.15
         )
-
+    
+        return True
+    
+    
     def start_drag(self):
         """
         Mantiene presionado el botón izquierdo
         para comenzar una operación de arrastre.
         """
-
+    
         if self.dragging:
-            return
-
+            return False
+    
         pyautogui.mouseDown(
             button="left"
         )
-
+    
         self.dragging = True
-
+    
+        return True
+    
+    
     def stop_drag(self):
         """
         Libera el botón izquierdo y finaliza
         la operación de arrastre.
         """
-
+    
         if not self.dragging:
-            return
-
+            return False
+    
         pyautogui.mouseUp(
             button="left"
         )
-
+    
         self.dragging = False
+    
+        return True 
 
     def is_dragging(self):
         """

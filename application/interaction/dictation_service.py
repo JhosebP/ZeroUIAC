@@ -1,4 +1,5 @@
 import unicodedata
+from modules.voice.voice_commands import SYSTEM_CONTROL_COMMANDS
 class DictationService:
     """
     Coordina el modo de dictado de ZeroUI-AC.
@@ -100,7 +101,7 @@ class DictationService:
         ZeroUI-AC está en modo dictado.
 
         Retorna:
-        - None si aún no existe texto final.
+        - None si no existe texto final o la inserción falla.
         - El texto reconocido cuando se escribe.
         - EXIT_PHRASE cuando finaliza el dictado.
         """
@@ -126,6 +127,11 @@ class DictationService:
         if not normalized_text:
             return None
 
+        # Reserve only the four exact system phrases; ordinary words such
+        # as "enter" continue to be dictated as text.
+        if normalized_text in SYSTEM_CONTROL_COMMANDS:
+            return normalized_text
+
         if (
             normalized_text
             in self.EXIT_PHRASES
@@ -134,7 +140,7 @@ class DictationService:
         
             return self.EXIT_PHRASE
 
-        self.text_input_controller \
-            .write_text(text)
+        if not self.text_input_controller.write_text(text):
+            return None
 
         return text

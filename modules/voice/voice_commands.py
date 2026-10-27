@@ -23,7 +23,8 @@ VOICE_COMMANDS = [
     "acercar",
     "alejar",
     "dibujar",
-    "eliminar"
+    "eliminar",
+    "enter"
 ]
 
 VOICE_MODE_COMMANDS = [
@@ -34,9 +35,17 @@ VOICE_MODE_COMMANDS = [
     "desactivar borrador"
 ]
 
+SYSTEM_CONTROL_COMMANDS = {
+    "zero ui suspender": "ZeroUI suspendido",
+    "zero ui activar": "ZeroUI activado",
+    "zero ui mostrar comandos": "Comandos mostrados",
+    "zero ui ocultar comandos": "Comandos ocultados",
+}
+
 VOICE_GRAMMAR = (
     VOICE_COMMANDS
     + VOICE_MODE_COMMANDS
+    + list(SYSTEM_CONTROL_COMMANDS)
 )
 
 
@@ -97,6 +106,7 @@ VOICE_ACTION_MAP = {
     "alejar": SystemAction.ZOOM_OUT,
     "dibujar": SystemAction.DRAW,
     "eliminar": SystemAction.DELETE,
+    "enter": SystemAction.ENTER,
     
     "activar borrador":
         SystemAction.ERASER_ON,
