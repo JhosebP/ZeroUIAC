@@ -8,7 +8,8 @@ from modules.voice.voice_commands import (
 from modules.vision.gesture_detector import GestureDetector
 
 
-def get_command_groups():
+def get_command_catalog():
+    """Structured catalog for consumers that do not render panel headings."""
     toggles = [
         phrase for phrase in VOICE_COMMANDS
         if VOICE_ACTION_MAP.get(phrase) in (SystemAction.DRAW, SystemAction.ERASE)
@@ -16,7 +17,6 @@ def get_command_groups():
     modes = list(VOICE_MODE_COMMANDS)
     modes.extend(sorted(DictationService.EXIT_PHRASES))
     modes.extend(f'{phrase} (alterna el modo)' for phrase in toggles)
-    modes.extend(['', 'CONTROLES ZEROUI', *SYSTEM_CONTROL_COMMANDS])
     execution = [phrase for phrase in VOICE_COMMANDS if phrase not in toggles]
     physical = [
         'CABEZA',
@@ -33,8 +33,18 @@ def get_command_groups():
     }
     physical.extend(gestures.values())
     physical.append('Mantener brevemente; soltar para repetir')
+    return {
+        'modes': modes,
+        'execution': execution,
+        'system': list(SYSTEM_CONTROL_COMMANDS),
+        'gestures': physical,
+    }
+
+
+def get_command_groups():
+    catalog = get_command_catalog()
     return (
-        ('MODOS Y CONTROLES', modes),
-        ('EJECUCIÓN', execution),
-        ('GESTOS Y MOVIMIENTOS', physical),
+        ('MODOS Y CONTROLES', catalog['modes'] + ['', 'CONTROLES ZEROUI', *catalog['system']]),
+        ('EJECUCIÓN', catalog['execution']),
+        ('GESTOS Y MOVIMIENTOS', catalog['gestures']),
     )

@@ -107,6 +107,11 @@ from modules.adaptation.interaction_outcome_tracker import (
     InteractionOutcomeTracker
 )
 
+from application.facade import ZeroUIApplicationFacade
+from presentation.api import create_app
+from presentation.api.server import LocalApiServer
+from presentation.overlay.command_help import get_command_catalog
+
 def print_session_summary(
     summary
 ):
@@ -315,6 +320,38 @@ def print_adaptation_summary(result):
     lines.append(f"Epsilon: {number(result.epsilon, 4)}")
     # One print reduces interleaving with other console producers.
     print("\n".join(lines))
+
+
+def build_local_api(
+    *,
+    system_mode_manager,
+    session_manager,
+    adaptive_parameters_manager,
+    adaptive_channel_weights,
+    q_learning_agent,
+    voice_mode_manager,
+    zoom_mode_manager,
+    commands_presenter,
+    adaptive_runtime,
+):
+    """Compose the API facade from the exact instances used by the motor."""
+    facade = ZeroUIApplicationFacade(
+        system_mode_manager=system_mode_manager,
+        session_manager=session_manager,
+        adaptive_parameters_manager=adaptive_parameters_manager,
+        adaptive_channel_weights=adaptive_channel_weights,
+        q_learning_agent=q_learning_agent,
+        voice_mode_manager=voice_mode_manager,
+        zoom_mode_manager=zoom_mode_manager,
+        commands_presenter=commands_presenter,
+        command_catalog_provider=get_command_catalog,
+        adaptive_runtime=adaptive_runtime,
+    )
+    return facade, create_app(facade)
+
+
+def warn_api_unavailable():
+    print("ADVERTENCIA: API local no disponible.")
 
 
 def main():
@@ -634,6 +671,26 @@ def main():
         )
     )
 
+    api_server = None
+    try:
+        api_facade, api_app = build_local_api(
+            system_mode_manager=system_mode_manager,
+            session_manager=session_manager,
+            adaptive_parameters_manager=adaptive_parameters_manager,
+            adaptive_channel_weights=adaptive_channel_weights,
+            q_learning_agent=q_learning_agent,
+            voice_mode_manager=voice_mode_manager,
+            zoom_mode_manager=zoom_mode_manager,
+            commands_presenter=overlay_service,
+            adaptive_runtime=adaptive_runtime,
+        )
+        api_server = LocalApiServer(
+            api_app,
+            on_error=warn_api_unavailable,
+        )
+    except Exception:
+        warn_api_unavailable()
+
     session_id = (
         session_manager
         .start_session()
@@ -672,6 +729,17 @@ def main():
 
     print("")
 
+    if api_server is not None:
+        try:
+            api_server.start()
+        except Exception:
+            try:
+                api_server.stop()
+            except Exception:
+                pass
+            api_server = None
+            warn_api_unavailable()
+
     try:
 
         voice_service.start()
@@ -687,6 +755,13 @@ def main():
         )
 
     finally:
+
+        # Stop HTTP access before any dependency used by the facade is closed.
+        if api_server is not None:
+            try:
+                api_server.stop()
+            except Exception:
+                warn_api_unavailable()
 
         voice_service.stop()
 

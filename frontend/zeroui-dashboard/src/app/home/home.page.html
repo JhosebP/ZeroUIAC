@@ -1,0 +1,151 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>ZeroUI-AC</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+
+  <div class="dashboard">
+
+    <div class="dashboard-header">
+      <h1>ZEROUI-AC</h1>
+      <p>Sistema de accesibilidad multimodal</p>
+    </div>
+
+    @if (loading()) {
+
+      <div class="loading-container">
+
+        <ion-spinner name="crescent"></ion-spinner>
+
+        <p>
+          Conectando con ZeroUI-AC...
+        </p>
+
+      </div>
+
+    }
+
+    @if (error()) {
+
+      <ion-card class="error-card">
+
+        <ion-card-header>
+          <ion-card-title>
+            Sin conexión
+          </ion-card-title>
+        </ion-card-header>
+
+        <ion-card-content>
+
+          <p>
+            No se pudo conectar con ZeroUI-AC.
+          </p>
+
+          <p>
+            Verifica que el motor esté ejecutándose.
+          </p>
+
+          <ion-button
+            expand="block"
+            size="large"
+            (click)="loadStatus()"
+          >
+            Reintentar
+          </ion-button>
+
+        </ion-card-content>
+
+      </ion-card>
+
+    }
+
+    @if (status(); as currentStatus) {
+
+      @if (!loading()) {
+
+        <ion-card>
+
+          <ion-card-header>
+            <ion-card-title>
+              Estado del sistema
+            </ion-card-title>
+          </ion-card-header>
+
+          <ion-card-content>
+
+            <div class="status-row">
+
+              <span>Estado</span>
+
+              <strong
+                [class.active]="currentStatus.active"
+                [class.suspended]="currentStatus.suspended"
+              >
+                {{
+                  currentStatus.suspended
+                    ? 'SUSPENDIDO'
+                    : 'ACTIVO'
+                }}
+              </strong>
+
+            </div>
+
+            <div class="status-row">
+
+              <span>Modo de voz</span>
+
+              <strong>
+                {{ currentStatus.voice_mode }}
+              </strong>
+
+            </div>
+
+            <div class="status-row">
+
+              <span>Zoom</span>
+
+              <strong>
+                {{
+                  currentStatus.zoom_enabled
+                    ? 'ACTIVADO'
+                    : 'DESACTIVADO'
+                }}
+              </strong>
+
+            </div>
+
+            <div class="status-row">
+
+              <span>Panel de comandos</span>
+
+              <strong>
+                {{
+                  currentStatus.commands_visible
+                    ? 'VISIBLE'
+                    : 'OCULTO'
+                }}
+              </strong>
+
+            </div>
+
+          </ion-card-content>
+
+        </ion-card>
+
+        <ion-button
+          expand="block"
+          size="large"
+          (click)="loadStatus()"
+        >
+          Actualizar
+        </ion-button>
+
+      }
+
+    }
+
+  </div>
+
+</ion-content>

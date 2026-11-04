@@ -1,0 +1,66 @@
+.dashboard {
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  text-align: center;
+  margin: 30px 0;
+}
+
+.dashboard-header h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.dashboard-header p {
+  opacity: 0.7;
+  margin: 0;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 20px 4px;
+
+  border-bottom: 1px solid
+    var(--ion-color-light-shade);
+
+  font-size: 1.1rem;
+}
+
+.status-row:last-child {
+  border-bottom: none;
+}
+
+.active {
+  color: var(--ion-color-success);
+}
+
+.suspended {
+  color: var(--ion-color-warning);
+}
+
+.loading-container {
+  text-align: center;
+  margin-top: 60px;
+}
+
+.loading-container ion-spinner {
+  width: 45px;
+  height: 45px;
+}
+
+.error-card {
+  border-left: 5px solid
+    var(--ion-color-danger);
+}
+
+ion-button {
+  margin-top: 24px;
+  min-height: 52px;
+}

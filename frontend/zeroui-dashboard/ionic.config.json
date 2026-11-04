@@ -1,0 +1,7 @@
+{
+  "name": "zeroui-dashboard",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
