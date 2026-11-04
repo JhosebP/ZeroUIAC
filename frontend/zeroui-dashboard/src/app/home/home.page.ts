@@ -30,7 +30,6 @@ import {
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
   standalone: true,
-
   imports: [
     IonHeader,
     IonToolbar,
@@ -49,8 +48,10 @@ export class HomePage implements OnInit {
   status = signal<SystemStatus | null>(null);
 
   loading = signal(false);
-
   error = signal(false);
+
+  actionLoading = signal(false);
+  actionMessage = signal('');
 
   constructor(
     private zeroUiApi: ZeroUiApiService
@@ -62,12 +63,7 @@ export class HomePage implements OnInit {
 
   loadStatus(): void {
 
-    console.log(
-      '[ZeroUI] Solicitando estado...'
-    );
-
     this.loading.set(true);
-
     this.error.set(false);
 
     this.zeroUiApi
@@ -75,29 +71,130 @@ export class HomePage implements OnInit {
       .subscribe({
 
         next: (status) => {
-
-          console.log(
-            '[ZeroUI] Estado recibido:',
-            status
-          );
-
           this.status.set(status);
-
           this.loading.set(false);
         },
 
-        error: (error) => {
+        error: () => {
+          this.status.set(null);
+          this.error.set(true);
+          this.loading.set(false);
+        }
 
-          console.error(
-            '[ZeroUI] Error consultando API:',
-            error
+      });
+  }
+
+  suspendZeroUi(): void {
+
+    this.actionLoading.set(true);
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .suspendSystem()
+      .subscribe({
+
+        next: () => {
+          this.actionMessage.set(
+            'ZeroUI suspendido correctamente.'
           );
 
-          this.status.set(null);
+          this.actionLoading.set(false);
+          this.loadStatus();
+        },
 
-          this.error.set(true);
+        error: () => {
+          this.actionMessage.set(
+            'No se pudo suspender ZeroUI.'
+          );
 
-          this.loading.set(false);
+          this.actionLoading.set(false);
+        }
+
+      });
+  }
+
+  activateZeroUi(): void {
+
+    this.actionLoading.set(true);
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .activateSystem()
+      .subscribe({
+
+        next: () => {
+          this.actionMessage.set(
+            'ZeroUI activado correctamente.'
+          );
+
+          this.actionLoading.set(false);
+          this.loadStatus();
+        },
+
+        error: () => {
+          this.actionMessage.set(
+            'No se pudo activar ZeroUI.'
+          );
+
+          this.actionLoading.set(false);
+        }
+
+      });
+  }
+
+  showCommands(): void {
+
+    this.actionLoading.set(true);
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .showCommands()
+      .subscribe({
+
+        next: () => {
+          this.actionMessage.set(
+            'Panel de comandos mostrado.'
+          );
+
+          this.actionLoading.set(false);
+          this.loadStatus();
+        },
+
+        error: () => {
+          this.actionMessage.set(
+            'No se pudo mostrar el panel.'
+          );
+
+          this.actionLoading.set(false);
+        }
+
+      });
+  }
+
+  hideCommands(): void {
+
+    this.actionLoading.set(true);
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .hideCommands()
+      .subscribe({
+
+        next: () => {
+          this.actionMessage.set(
+            'Panel de comandos ocultado.'
+          );
+
+          this.actionLoading.set(false);
+          this.loadStatus();
+        },
+
+        error: () => {
+          this.actionMessage.set(
+            'No se pudo ocultar el panel.'
+          );
+
+          this.actionLoading.set(false);
         }
 
       });

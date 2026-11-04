@@ -9,15 +9,24 @@
   <div class="dashboard">
 
     <div class="dashboard-header">
-      <h1>ZEROUI-AC</h1>
-      <p>Sistema de accesibilidad multimodal</p>
+
+      <h1>
+        ZEROUI-AC
+      </h1>
+
+      <p>
+        Sistema de accesibilidad multimodal
+      </p>
+
     </div>
 
     @if (loading()) {
 
       <div class="loading-container">
 
-        <ion-spinner name="crescent"></ion-spinner>
+        <ion-spinner
+          name="crescent">
+        </ion-spinner>
 
         <p>
           Conectando con ZeroUI-AC...
@@ -32,19 +41,17 @@
       <ion-card class="error-card">
 
         <ion-card-header>
+
           <ion-card-title>
             Sin conexión
           </ion-card-title>
+
         </ion-card-header>
 
         <ion-card-content>
 
           <p>
             No se pudo conectar con ZeroUI-AC.
-          </p>
-
-          <p>
-            Verifica que el motor esté ejecutándose.
           </p>
 
           <ion-button
@@ -68,9 +75,11 @@
         <ion-card>
 
           <ion-card-header>
+
             <ion-card-title>
               Estado del sistema
             </ion-card-title>
+
           </ion-card-header>
 
           <ion-card-content>
@@ -134,13 +143,101 @@
 
         </ion-card>
 
-        <ion-button
-          expand="block"
-          size="large"
-          (click)="loadStatus()"
-        >
-          Actualizar
-        </ion-button>
+        <div class="control-section">
+
+          <h2>
+            Control de ZeroUI
+          </h2>
+
+          @if (currentStatus.active) {
+
+            <ion-button
+              expand="block"
+              size="large"
+              color="warning"
+              [disabled]="actionLoading()"
+              (click)="suspendZeroUi()"
+            >
+              Suspender ZeroUI
+            </ion-button>
+
+          }
+
+          @if (currentStatus.suspended) {
+
+            <ion-button
+              expand="block"
+              size="large"
+              color="success"
+              [disabled]="actionLoading()"
+              (click)="activateZeroUi()"
+            >
+              Activar ZeroUI
+            </ion-button>
+
+          }
+
+          @if (!currentStatus.commands_visible) {
+
+            <ion-button
+              expand="block"
+              size="large"
+              [disabled]="actionLoading()"
+              (click)="showCommands()"
+            >
+              Mostrar comandos
+            </ion-button>
+
+          }
+
+          @if (currentStatus.commands_visible) {
+
+            <ion-button
+              expand="block"
+              size="large"
+              [disabled]="actionLoading()"
+              (click)="hideCommands()"
+            >
+              Ocultar comandos
+            </ion-button>
+
+          }
+
+          <ion-button
+            expand="block"
+            size="large"
+            fill="outline"
+            [disabled]="actionLoading()"
+            (click)="loadStatus()"
+          >
+            Actualizar estado
+          </ion-button>
+
+        </div>
+
+        @if (actionLoading()) {
+
+          <div class="action-loading">
+
+            <ion-spinner
+              name="crescent">
+            </ion-spinner>
+
+            <span>
+              Procesando...
+            </span>
+
+          </div>
+
+        }
+
+        @if (actionMessage()) {
+
+          <div class="action-message">
+            {{ actionMessage() }}
+          </div>
+
+        }
 
       }
 
