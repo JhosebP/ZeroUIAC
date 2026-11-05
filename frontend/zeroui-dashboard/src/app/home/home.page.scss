@@ -97,3 +97,24 @@
   text-align: center;
   font-weight: 600;
 }
+
+.adaptation-card {
+  margin-top: 28px;
+}
+
+.adaptation-section {
+  margin-bottom: 26px;
+}
+
+.adaptation-section:last-child {
+  margin-bottom: 0;
+}
+
+.adaptation-section h3 {
+  margin: 10px 0 8px;
+
+  font-size: 1rem;
+  font-weight: 600;
+
+  opacity: 0.75;
+}

@@ -25,11 +25,16 @@ import {
   SystemStatus
 } from '../core/models/system-status.model';
 
+import {
+  AdaptationState
+} from '../core/models/adaptation-state.model';
+
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
   standalone: true,
+
   imports: [
     IonHeader,
     IonToolbar,
@@ -47,10 +52,14 @@ export class HomePage implements OnInit {
 
   status = signal<SystemStatus | null>(null);
 
+  adaptation = signal<AdaptationState | null>(null);
+
   loading = signal(false);
+
   error = signal(false);
 
   actionLoading = signal(false);
+
   actionMessage = signal('');
 
   constructor(
@@ -58,12 +67,17 @@ export class HomePage implements OnInit {
   ) {}
 
   ngOnInit(): void {
+
     this.loadStatus();
+
+    this.loadAdaptation();
+
   }
 
   loadStatus(): void {
 
     this.loading.set(true);
+
     this.error.set(false);
 
     this.zeroUiApi
@@ -71,22 +85,61 @@ export class HomePage implements OnInit {
       .subscribe({
 
         next: (status) => {
+
           this.status.set(status);
+
           this.loading.set(false);
+
         },
 
         error: () => {
+
           this.status.set(null);
+
           this.error.set(true);
+
           this.loading.set(false);
+
         }
 
       });
+
+  }
+
+  loadAdaptation(): void {
+
+    this.zeroUiApi
+      .getAdaptationState()
+      .subscribe({
+
+        next: (adaptation) => {
+
+          this.adaptation.set(adaptation);
+
+        },
+
+        error: () => {
+
+          this.adaptation.set(null);
+
+        }
+
+      });
+
+  }
+
+  refreshDashboard(): void {
+
+    this.loadStatus();
+
+    this.loadAdaptation();
+
   }
 
   suspendZeroUi(): void {
 
     this.actionLoading.set(true);
+
     this.actionMessage.set('');
 
     this.zeroUiApi
@@ -94,28 +147,35 @@ export class HomePage implements OnInit {
       .subscribe({
 
         next: () => {
+
           this.actionMessage.set(
             'ZeroUI suspendido correctamente.'
           );
 
           this.actionLoading.set(false);
+
           this.loadStatus();
+
         },
 
         error: () => {
+
           this.actionMessage.set(
             'No se pudo suspender ZeroUI.'
           );
 
           this.actionLoading.set(false);
+
         }
 
       });
+
   }
 
   activateZeroUi(): void {
 
     this.actionLoading.set(true);
+
     this.actionMessage.set('');
 
     this.zeroUiApi
@@ -123,28 +183,35 @@ export class HomePage implements OnInit {
       .subscribe({
 
         next: () => {
+
           this.actionMessage.set(
             'ZeroUI activado correctamente.'
           );
 
           this.actionLoading.set(false);
+
           this.loadStatus();
+
         },
 
         error: () => {
+
           this.actionMessage.set(
             'No se pudo activar ZeroUI.'
           );
 
           this.actionLoading.set(false);
+
         }
 
       });
+
   }
 
   showCommands(): void {
 
     this.actionLoading.set(true);
+
     this.actionMessage.set('');
 
     this.zeroUiApi
@@ -152,28 +219,35 @@ export class HomePage implements OnInit {
       .subscribe({
 
         next: () => {
+
           this.actionMessage.set(
             'Panel de comandos mostrado.'
           );
 
           this.actionLoading.set(false);
+
           this.loadStatus();
+
         },
 
         error: () => {
+
           this.actionMessage.set(
             'No se pudo mostrar el panel.'
           );
 
           this.actionLoading.set(false);
+
         }
 
       });
+
   }
 
   hideCommands(): void {
 
     this.actionLoading.set(true);
+
     this.actionMessage.set('');
 
     this.zeroUiApi
@@ -181,22 +255,29 @@ export class HomePage implements OnInit {
       .subscribe({
 
         next: () => {
+
           this.actionMessage.set(
             'Panel de comandos ocultado.'
           );
 
           this.actionLoading.set(false);
+
           this.loadStatus();
+
         },
 
         error: () => {
+
           this.actionMessage.set(
             'No se pudo ocultar el panel.'
           );
 
           this.actionLoading.set(false);
+
         }
 
       });
+
   }
+
 }

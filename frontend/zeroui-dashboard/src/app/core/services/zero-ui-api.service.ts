@@ -5,6 +5,10 @@ import { Observable } from 'rxjs';
 import { API_CONFIG } from '../config/api.config';
 import { SystemStatus } from '../models/system-status.model';
 
+import {
+  AdaptationState
+} from '../models/adaptation-state.model';
+
 export interface SystemControlResult {
   success: boolean;
   active: boolean;
@@ -28,6 +32,12 @@ export class ZeroUiApiService {
   getSystemStatus(): Observable<SystemStatus> {
     return this.http.get<SystemStatus>(
       `${API_CONFIG.baseUrl}/status`
+    );
+  }
+
+  getAdaptationState(): Observable<AdaptationState> {
+    return this.http.get<AdaptationState>(
+      `${API_CONFIG.baseUrl}/adaptation`
     );
   }
 

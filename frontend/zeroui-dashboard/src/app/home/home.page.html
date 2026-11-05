@@ -57,7 +57,7 @@
           <ion-button
             expand="block"
             size="large"
-            (click)="loadStatus()"
+            (click)="refreshDashboard()"
           >
             Reintentar
           </ion-button>
@@ -241,6 +241,195 @@
 
       }
 
+    }
+
+    @if (adaptation(); as adaptationState) {
+
+      <ion-card class="adaptation-card">
+      
+        <ion-card-header>
+        
+          <ion-card-title>
+            Adaptación inteligente
+          </ion-card-title>
+        
+        </ion-card-header>
+      
+      
+        <ion-card-content>
+        
+          <div class="adaptation-section">
+          
+            <h3>
+              Sensibilidad
+            </h3>
+          
+            <div class="status-row">
+            
+              <span>
+                Cabeza
+              </span>
+            
+              <strong>
+                {{
+                  adaptationState
+                    .head_sensitivity_factor
+                    .toFixed(2)
+                }}
+              </strong>
+            
+            </div>
+          
+          
+            <div class="status-row">
+            
+              <span>
+                Extremidad
+              </span>
+            
+              <strong>
+                {{
+                  adaptationState
+                    .limb_sensitivity_factor
+                    .toFixed(2)
+                }}
+              </strong>
+            
+            </div>
+          
+          </div>
+        
+        
+          <div class="adaptation-section">
+          
+            <h3>
+              Pesos de canales
+            </h3>
+          
+          
+            <div class="status-row">
+            
+              <span>Voz</span>
+            
+              <strong>
+                {{
+                  adaptationState
+                    .weights.voice
+                    .toFixed(2)
+                }}
+              </strong>
+            
+            </div>
+          
+          
+            <div class="status-row">
+            
+              <span>Cabeza</span>
+            
+              <strong>
+                {{
+                  adaptationState
+                    .weights.head
+                    .toFixed(2)
+                }}
+              </strong>
+            
+            </div>
+          
+          
+            <div class="status-row">
+            
+              <span>Extremidad</span>
+            
+              <strong>
+                {{
+                  adaptationState
+                    .weights.limb
+                    .toFixed(2)
+                }}
+              </strong>
+            
+            </div>
+          
+          
+            <div class="status-row">
+            
+              <span>Gestos</span>
+            
+              <strong>
+                {{
+                  adaptationState
+                    .weights.gesture
+                    .toFixed(2)
+                }}
+              </strong>
+            
+            </div>
+          
+          </div>
+        
+        
+          <div class="adaptation-section">
+          
+            <h3>
+              Q-learning
+            </h3>
+          
+          
+            <div class="status-row">
+            
+              <span>
+                Epsilon
+              </span>
+            
+              <strong>
+                {{
+                  adaptationState
+                    .epsilon
+                    .toFixed(4)
+                }}
+              </strong>
+            
+            </div>
+          
+          
+            <div class="status-row">
+            
+              <span>
+                Estados aprendidos
+              </span>
+            
+              <strong>
+                {{ adaptationState.q_states }}
+              </strong>
+            
+            </div>
+          
+          
+            <div class="status-row">
+            
+              <span>
+                Última recompensa
+              </span>
+            
+              <strong>
+              
+                {{
+                  adaptationState.last_reward !== null
+                    ? adaptationState.last_reward.toFixed(3)
+                    : 'Sin datos'
+                }}
+              
+              </strong>
+            
+            </div>
+          
+          </div>
+        
+        </ion-card-content>
+      
+      </ion-card>
+    
     }
 
   </div>
