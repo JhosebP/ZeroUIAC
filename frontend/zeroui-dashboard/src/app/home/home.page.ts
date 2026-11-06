@@ -33,6 +33,10 @@ import {
   SessionMetrics
 } from '../core/models/session-metrics.model';
 
+import {
+  CommandCatalog
+} from '../core/models/command-catalog.model';
+
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
@@ -68,6 +72,8 @@ export class HomePage implements OnInit {
 
   actionMessage = signal('');
 
+  commands = signal<CommandCatalog | null>(null);
+
   constructor(
     private zeroUiApi: ZeroUiApiService
   ) {}
@@ -79,6 +85,8 @@ export class HomePage implements OnInit {
     this.loadAdaptation();
 
     this.loadSession();
+
+    this.loadCommands();
 
   }
 
@@ -143,6 +151,8 @@ export class HomePage implements OnInit {
     this.loadAdaptation();
 
     this.loadSession();
+
+    this.loadCommands();
 
   }
 
@@ -331,6 +341,24 @@ export class HomePage implements OnInit {
         + String(remainingSeconds).padStart(2, '0')
       );
     
+    }
+
+  loadCommands(): void {
+
+      this.zeroUiApi
+        .getCommands()
+        .subscribe({
+        
+          next: (commands) => {
+            this.commands.set(commands);
+          },
+        
+          error: () => {
+            this.commands.set(null);
+          }
+        
+        });
+      
     }
 
 }

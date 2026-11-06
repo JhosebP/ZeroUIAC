@@ -147,3 +147,67 @@
 
   opacity: 0.75;
 }
+
+.commands-card {
+  margin-top: 28px;
+}
+
+.command-group {
+  margin-bottom: 30px;
+}
+
+.command-group:last-child {
+  margin-bottom: 0;
+}
+
+.command-group h3 {
+  margin: 8px 0 14px;
+
+  font-size: 1rem;
+  font-weight: 600;
+
+  opacity: 0.8;
+}
+
+.command-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(180px, 1fr)
+    );
+
+  gap: 10px;
+}
+
+.command-item {
+  padding: 13px 15px;
+
+  border:
+    1px solid
+    var(--ion-color-step-200);
+
+  border-radius: 8px;
+
+  background:
+    var(--ion-color-step-100);
+
+  font-size: 0.95rem;
+}
+
+.system-command {
+  border-left:
+    4px solid
+    var(--ion-color-warning);
+}
+
+.gesture-command {
+  border-left:
+    4px solid
+    var(--ion-color-success);
+}
+
+.gestures-grid {
+  grid-template-columns: 1fr;
+}

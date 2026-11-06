@@ -241,6 +241,129 @@
 
       }
 
+      @if (currentStatus.commands_visible) {
+
+        @if (commands(); as commandCatalog) {
+        
+          <ion-card class="commands-card">
+          
+            <ion-card-header>
+            
+              <ion-card-title>
+                Comandos de ZeroUI-AC
+              </ion-card-title>
+            
+            </ion-card-header>
+          
+            <ion-card-content>
+            
+              <div class="command-group">
+              
+                <h3>
+                  Modos
+                </h3>
+              
+                <div class="command-grid">
+                
+                  @for (command of commandCatalog.modes; track command) {
+                  
+                    @if (command.trim()) {
+                    
+                      <div class="command-item">
+                        {{ command }}
+                      </div>
+                    
+                    }
+                  
+                  }
+                
+                </div>
+              
+              </div>
+            
+            
+              <div class="command-group">
+              
+                <h3>
+                  Comandos de ejecución
+                </h3>
+              
+                <div class="command-grid">
+                
+                  @for (command of commandCatalog.execution; track command) {
+                  
+                    @if (command.trim()) {
+                    
+                      <div class="command-item">
+                        {{ command }}
+                      </div>
+                    
+                    }
+                  
+                  }
+                
+                </div>
+              
+              </div>
+            
+            
+              <div class="command-group">
+              
+                <h3>
+                  Control general
+                </h3>
+              
+                <div class="command-grid">
+                
+                  @for (command of commandCatalog.system; track command) {
+                  
+                    @if (command.trim()) {
+                    
+                      <div class="command-item system-command">
+                        {{ command }}
+                      </div>
+                    
+                    }
+                  
+                  }
+                
+                </div>
+              
+              </div>
+            
+            
+              <div class="command-group">
+              
+                <h3>
+                  Gestos y movimientos
+                </h3>
+              
+                <div class="command-grid gestures-grid">
+                
+                  @for (command of commandCatalog.gestures; track $index) {
+                  
+                    @if (command.trim()) {
+                    
+                      <div class="command-item gesture-command">
+                        {{ command }}
+                      </div>
+                    
+                    }
+                  
+                  }
+                
+                </div>
+              
+              </div>
+            
+            </ion-card-content>
+          
+          </ion-card>
+        
+        }
+      
+      }
+
     }
 
     @if (adaptation(); as adaptationState) {

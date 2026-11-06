@@ -13,6 +13,10 @@ import {
   SessionMetrics
 } from '../models/session-metrics.model';
 
+import {
+  CommandCatalog
+} from '../models/command-catalog.model';
+
 export interface SystemControlResult {
   success: boolean;
   active: boolean;
@@ -77,6 +81,14 @@ export class ZeroUiApiService {
 
     return this.http.get<SessionMetrics>(
       `${API_CONFIG.baseUrl}/session`
+    );
+  
+  }
+
+  getCommands(): Observable<CommandCatalog> {
+
+    return this.http.get<CommandCatalog>(
+      `${API_CONFIG.baseUrl}/commands`
     );
   
   }
