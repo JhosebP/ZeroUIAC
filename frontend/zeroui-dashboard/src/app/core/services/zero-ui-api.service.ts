@@ -9,6 +9,10 @@ import {
   AdaptationState
 } from '../models/adaptation-state.model';
 
+import {
+  SessionMetrics
+} from '../models/session-metrics.model';
+
 export interface SystemControlResult {
   success: boolean;
   active: boolean;
@@ -67,5 +71,13 @@ export class ZeroUiApiService {
       `${API_CONFIG.baseUrl}/commands/hide`,
       {}
     );
+  }
+
+  getSessionMetrics(): Observable<SessionMetrics> {
+
+    return this.http.get<SessionMetrics>(
+      `${API_CONFIG.baseUrl}/session`
+    );
+  
   }
 }

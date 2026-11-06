@@ -118,3 +118,32 @@
 
   opacity: 0.75;
 }
+
+.session-card {
+  margin-top: 28px;
+}
+
+.session-section {
+  margin-bottom: 26px;
+}
+
+.session-section:last-child {
+  margin-bottom: 0;
+}
+
+.session-section h3 {
+  margin: 10px 0 8px;
+
+  font-size: 1rem;
+  font-weight: 600;
+
+  opacity: 0.75;
+}
+
+.no-session {
+  padding: 20px 5px;
+
+  text-align: center;
+
+  opacity: 0.75;
+}

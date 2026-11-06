@@ -29,6 +29,10 @@ import {
   AdaptationState
 } from '../core/models/adaptation-state.model';
 
+import {
+  SessionMetrics
+} from '../core/models/session-metrics.model';
+
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
@@ -54,6 +58,8 @@ export class HomePage implements OnInit {
 
   adaptation = signal<AdaptationState | null>(null);
 
+  session = signal<SessionMetrics | null>(null);
+
   loading = signal(false);
 
   error = signal(false);
@@ -71,6 +77,8 @@ export class HomePage implements OnInit {
     this.loadStatus();
 
     this.loadAdaptation();
+
+    this.loadSession();
 
   }
 
@@ -133,6 +141,8 @@ export class HomePage implements OnInit {
     this.loadStatus();
 
     this.loadAdaptation();
+
+    this.loadSession();
 
   }
 
@@ -279,5 +289,48 @@ export class HomePage implements OnInit {
       });
 
   }
+
+  loadSession(): void {
+
+    this.zeroUiApi
+      .getSessionMetrics()
+      .subscribe({
+
+        next: (session) => {
+
+          this.session.set(session);
+
+        },
+
+        error: () => {
+
+          this.session.set(null);
+
+        }
+
+      });
+
+  }
+
+  formatDuration(
+      seconds: number
+    ): string {
+    
+      const totalSeconds =
+        Math.floor(seconds);
+    
+      const minutes =
+        Math.floor(totalSeconds / 60);
+    
+      const remainingSeconds =
+        totalSeconds % 60;
+    
+      return (
+        String(minutes).padStart(2, '0')
+        + ':'
+        + String(remainingSeconds).padStart(2, '0')
+      );
+    
+    }
 
 }

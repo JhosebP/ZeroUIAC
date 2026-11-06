@@ -432,6 +432,227 @@
     
     }
 
+    @if (session(); as sessionData) {
+
+      <ion-card class="session-card">
+      
+        <ion-card-header>
+        
+          <ion-card-title>
+            Sesión actual
+          </ion-card-title>
+        
+        </ion-card-header>
+      
+      
+        <ion-card-content>
+        
+          @if (!sessionData.session_active) {
+          
+            <div class="no-session">
+            
+              No existe una sesión activa.
+            
+            </div>
+          
+          }
+        
+        
+          @if (sessionData.session_active) {
+          
+            <div class="session-section">
+            
+              <h3>
+                Actividad
+              </h3>
+            
+            
+              <div class="status-row">
+              
+                <span>
+                  Duración
+                </span>
+              
+                <strong>
+                  {{
+                    formatDuration(
+                      sessionData.duration_seconds ?? 0
+                    )
+                  }}
+                </strong>
+              
+              </div>
+            
+            
+              <div class="status-row">
+              
+                <span>
+                  Eventos totales
+                </span>
+              
+                <strong>
+                  {{ sessionData.total_events ?? 0 }}
+                </strong>
+              
+              </div>
+            
+            
+              <div class="status-row">
+              
+                <span>
+                  Acciones
+                </span>
+              
+                <strong>
+                  {{ sessionData.action_events ?? 0 }}
+                </strong>
+              
+              </div>
+            
+            
+              <div class="status-row">
+              
+                <span>
+                  Movimientos de cursor
+                </span>
+              
+                <strong>
+                  {{ sessionData.cursor_events ?? 0 }}
+                </strong>
+              
+              </div>
+            
+            
+              <div class="status-row">
+              
+                <span>
+                  Cambios de canal
+                </span>
+              
+                <strong>
+                  {{ sessionData.channel_switches ?? 0 }}
+                </strong>
+              
+              </div>
+            
+            </div>
+          
+          
+            <div class="session-section">
+            
+              <h3>
+                Errores
+              </h3>
+            
+            
+              <div class="status-row">
+              
+                <span>
+                  Errores registrados
+                </span>
+              
+                <strong>
+                  {{ sessionData.error_events ?? 0 }}
+                </strong>
+              
+              </div>
+            
+            
+              <div class="status-row">
+              
+                <span>
+                  Tasa de error
+                </span>
+              
+                <strong>
+                  {{
+                    (
+                      (sessionData.error_rate ?? 0)
+                      * 100
+                    ).toFixed(2)
+                  }} %
+                </strong>
+              
+              </div>
+            
+            </div>
+          
+          
+            @if (sessionData.source_counts; as sources) {
+            
+              <div class="session-section">
+              
+                <h3>
+                  Eventos por canal
+                </h3>
+              
+              
+                <div class="status-row">
+                
+                  <span>Voz</span>
+                
+                  <strong>
+                    {{ sources.voice }}
+                  </strong>
+                
+                </div>
+              
+              
+                <div class="status-row">
+                
+                  <span>Cabeza</span>
+                
+                  <strong>
+                    {{ sources.head }}
+                  </strong>
+                
+                </div>
+              
+              
+                <div class="status-row">
+                
+                  <span>Extremidad</span>
+                
+                  <strong>
+                    {{ sources.limb }}
+                  </strong>
+                
+                </div>
+              
+              
+                <div class="status-row">
+                
+                  <span>Gestos</span>
+                
+                  <strong>
+                    {{ sources.gesture }}
+                  </strong>
+                
+                </div>
+              
+              
+                <div class="status-row">
+                
+                  <span>Sistema</span>
+                
+                  <strong>
+                    {{ sources.system }}
+                  </strong>
+                
+                </div>
+              
+              </div>
+            
+            }
+          
+          }
+        
+        </ion-card-content>
+      
+      </ion-card>
+    
+    }
+
   </div>
 
 </ion-content>
