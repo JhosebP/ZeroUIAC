@@ -1,6 +1,7 @@
 import {
   Component,
   OnInit,
+  OnDestroy,
   signal
 } from '@angular/core';
 
@@ -56,7 +57,11 @@ import {
     IonSpinner
   ]
 })
-export class HomePage implements OnInit {
+export class HomePage implements OnInit, OnDestroy {
+
+  // ==============================
+  // ESTADO GENERAL
+  // ==============================
 
   status = signal<SystemStatus | null>(null);
 
@@ -64,23 +69,83 @@ export class HomePage implements OnInit {
 
   session = signal<SessionMetrics | null>(null);
 
+  commands = signal<CommandCatalog | null>(null);
+
+
+  // ==============================
+  // ESTADO DE INTERFAZ
+  // ==============================
+
   loading = signal(false);
 
   error = signal(false);
+
+  connected = signal(false);
 
   actionLoading = signal(false);
 
   actionMessage = signal('');
 
-  commands = signal<CommandCatalog | null>(null);
+
+  // ==============================
+  // ACTUALIZACIÓN AUTOMÁTICA
+  // ==============================
+
+  private refreshInterval:
+    ReturnType<typeof setInterval> | null = null;
+
 
   constructor(
     private zeroUiApi: ZeroUiApiService
   ) {}
 
+
+  // ==============================
+  // CICLO DE VIDA
+  // ==============================
+
   ngOnInit(): void {
 
-    this.loadStatus();
+    // Primera carga del dashboard
+    this.refreshDashboard();
+
+    // Actualización automática cada 5 segundos
+    this.refreshInterval = setInterval(
+      () => {
+
+        this.refreshDashboard(false);
+
+      },
+      5000
+    );
+
+  }
+
+
+  ngOnDestroy(): void {
+
+    if (this.refreshInterval !== null) {
+
+      clearInterval(
+        this.refreshInterval
+      );
+
+      this.refreshInterval = null;
+
+    }
+
+  }
+
+
+  // ==============================
+  // DASHBOARD
+  // ==============================
+
+  refreshDashboard(
+    showLoading: boolean = true
+  ): void {
+
+    this.loadStatus(showLoading);
 
     this.loadAdaptation();
 
@@ -90,11 +155,20 @@ export class HomePage implements OnInit {
 
   }
 
-  loadStatus(): void {
 
-    this.loading.set(true);
+  // ==============================
+  // ESTADO DEL SISTEMA
+  // ==============================
 
-    this.error.set(false);
+  loadStatus(
+    showLoading: boolean = true
+  ): void {
+
+    if (showLoading) {
+
+      this.loading.set(true);
+
+    }
 
     this.zeroUiApi
       .getSystemStatus()
@@ -104,6 +178,10 @@ export class HomePage implements OnInit {
 
           this.status.set(status);
 
+          this.connected.set(true);
+
+          this.error.set(false);
+
           this.loading.set(false);
 
         },
@@ -111,6 +189,8 @@ export class HomePage implements OnInit {
         error: () => {
 
           this.status.set(null);
+
+          this.connected.set(false);
 
           this.error.set(true);
 
@@ -122,6 +202,11 @@ export class HomePage implements OnInit {
 
   }
 
+
+  // ==============================
+  // ADAPTACIÓN INTELIGENTE
+  // ==============================
+
   loadAdaptation(): void {
 
     this.zeroUiApi
@@ -130,7 +215,9 @@ export class HomePage implements OnInit {
 
         next: (adaptation) => {
 
-          this.adaptation.set(adaptation);
+          this.adaptation.set(
+            adaptation
+          );
 
         },
 
@@ -144,161 +231,10 @@ export class HomePage implements OnInit {
 
   }
 
-  refreshDashboard(): void {
 
-    this.loadStatus();
-
-    this.loadAdaptation();
-
-    this.loadSession();
-
-    this.loadCommands();
-
-  }
-
-  suspendZeroUi(): void {
-
-    this.actionLoading.set(true);
-
-    this.actionMessage.set('');
-
-    this.zeroUiApi
-      .suspendSystem()
-      .subscribe({
-
-        next: () => {
-
-          this.actionMessage.set(
-            'ZeroUI suspendido correctamente.'
-          );
-
-          this.actionLoading.set(false);
-
-          this.loadStatus();
-
-        },
-
-        error: () => {
-
-          this.actionMessage.set(
-            'No se pudo suspender ZeroUI.'
-          );
-
-          this.actionLoading.set(false);
-
-        }
-
-      });
-
-  }
-
-  activateZeroUi(): void {
-
-    this.actionLoading.set(true);
-
-    this.actionMessage.set('');
-
-    this.zeroUiApi
-      .activateSystem()
-      .subscribe({
-
-        next: () => {
-
-          this.actionMessage.set(
-            'ZeroUI activado correctamente.'
-          );
-
-          this.actionLoading.set(false);
-
-          this.loadStatus();
-
-        },
-
-        error: () => {
-
-          this.actionMessage.set(
-            'No se pudo activar ZeroUI.'
-          );
-
-          this.actionLoading.set(false);
-
-        }
-
-      });
-
-  }
-
-  showCommands(): void {
-
-    this.actionLoading.set(true);
-
-    this.actionMessage.set('');
-
-    this.zeroUiApi
-      .showCommands()
-      .subscribe({
-
-        next: () => {
-
-          this.actionMessage.set(
-            'Panel de comandos mostrado.'
-          );
-
-          this.actionLoading.set(false);
-
-          this.loadStatus();
-
-        },
-
-        error: () => {
-
-          this.actionMessage.set(
-            'No se pudo mostrar el panel.'
-          );
-
-          this.actionLoading.set(false);
-
-        }
-
-      });
-
-  }
-
-  hideCommands(): void {
-
-    this.actionLoading.set(true);
-
-    this.actionMessage.set('');
-
-    this.zeroUiApi
-      .hideCommands()
-      .subscribe({
-
-        next: () => {
-
-          this.actionMessage.set(
-            'Panel de comandos ocultado.'
-          );
-
-          this.actionLoading.set(false);
-
-          this.loadStatus();
-
-        },
-
-        error: () => {
-
-          this.actionMessage.set(
-            'No se pudo ocultar el panel.'
-          );
-
-          this.actionLoading.set(false);
-
-        }
-
-      });
-
-  }
+  // ==============================
+  // MÉTRICAS DE SESIÓN
+  // ==============================
 
   loadSession(): void {
 
@@ -322,43 +258,223 @@ export class HomePage implements OnInit {
 
   }
 
-  formatDuration(
-      seconds: number
-    ): string {
-    
-      const totalSeconds =
-        Math.floor(seconds);
-    
-      const minutes =
-        Math.floor(totalSeconds / 60);
-    
-      const remainingSeconds =
-        totalSeconds % 60;
-    
-      return (
-        String(minutes).padStart(2, '0')
-        + ':'
-        + String(remainingSeconds).padStart(2, '0')
-      );
-    
-    }
+
+  // ==============================
+  // CATÁLOGO DE COMANDOS
+  // ==============================
 
   loadCommands(): void {
 
-      this.zeroUiApi
-        .getCommands()
-        .subscribe({
-        
-          next: (commands) => {
-            this.commands.set(commands);
-          },
-        
-          error: () => {
-            this.commands.set(null);
-          }
-        
-        });
-      
-    }
+    this.zeroUiApi
+      .getCommands()
+      .subscribe({
+
+        next: (commands) => {
+
+          this.commands.set(commands);
+
+        },
+
+        error: () => {
+
+          this.commands.set(null);
+
+        }
+
+      });
+
+  }
+
+
+  // ==============================
+  // SUSPENDER ZEROUI
+  // ==============================
+
+  suspendZeroUi(): void {
+
+    this.actionLoading.set(true);
+
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .suspendSystem()
+      .subscribe({
+
+        next: () => {
+
+          this.actionMessage.set(
+            'ZeroUI suspendido correctamente.'
+          );
+
+          this.actionLoading.set(false);
+
+          this.refreshDashboard(false);
+
+        },
+
+        error: () => {
+
+          this.actionMessage.set(
+            'No se pudo suspender ZeroUI.'
+          );
+
+          this.actionLoading.set(false);
+
+        }
+
+      });
+
+  }
+
+
+  // ==============================
+  // ACTIVAR ZEROUI
+  // ==============================
+
+  activateZeroUi(): void {
+
+    this.actionLoading.set(true);
+
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .activateSystem()
+      .subscribe({
+
+        next: () => {
+
+          this.actionMessage.set(
+            'ZeroUI activado correctamente.'
+          );
+
+          this.actionLoading.set(false);
+
+          this.refreshDashboard(false);
+
+        },
+
+        error: () => {
+
+          this.actionMessage.set(
+            'No se pudo activar ZeroUI.'
+          );
+
+          this.actionLoading.set(false);
+
+        }
+
+      });
+
+  }
+
+
+  // ==============================
+  // MOSTRAR COMANDOS
+  // ==============================
+
+  showCommands(): void {
+
+    this.actionLoading.set(true);
+
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .showCommands()
+      .subscribe({
+
+        next: () => {
+
+          this.actionMessage.set(
+            'Panel de comandos mostrado.'
+          );
+
+          this.actionLoading.set(false);
+
+          this.refreshDashboard(false);
+
+        },
+
+        error: () => {
+
+          this.actionMessage.set(
+            'No se pudo mostrar el panel.'
+          );
+
+          this.actionLoading.set(false);
+
+        }
+
+      });
+
+  }
+
+
+  // ==============================
+  // OCULTAR COMANDOS
+  // ==============================
+
+  hideCommands(): void {
+
+    this.actionLoading.set(true);
+
+    this.actionMessage.set('');
+
+    this.zeroUiApi
+      .hideCommands()
+      .subscribe({
+
+        next: () => {
+
+          this.actionMessage.set(
+            'Panel de comandos ocultado.'
+          );
+
+          this.actionLoading.set(false);
+
+          this.refreshDashboard(false);
+
+        },
+
+        error: () => {
+
+          this.actionMessage.set(
+            'No se pudo ocultar el panel.'
+          );
+
+          this.actionLoading.set(false);
+
+        }
+
+      });
+
+  }
+
+
+  // ==============================
+  // FORMATO DE DURACIÓN
+  // ==============================
+
+  formatDuration(
+    seconds: number
+  ): string {
+
+    const totalSeconds =
+      Math.floor(seconds);
+
+    const minutes =
+      Math.floor(
+        totalSeconds / 60
+      );
+
+    const remainingSeconds =
+      totalSeconds % 60;
+
+    return (
+      String(minutes).padStart(2, '0')
+      + ':'
+      + String(remainingSeconds).padStart(2, '0')
+    );
+
+  }
 
 }

@@ -211,3 +211,18 @@
 .gestures-grid {
   grid-template-columns: 1fr;
 }
+
+.connection-status {
+  margin-top: 12px;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.connection-online {
+  color: var(--ion-color-success);
+}
+
+.connection-offline {
+  color: var(--ion-color-danger);
+}

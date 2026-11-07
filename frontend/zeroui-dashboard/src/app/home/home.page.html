@@ -18,6 +18,24 @@
         Sistema de accesibilidad multimodal
       </p>
 
+      <div class="connection-status">
+
+        @if (connected()) {
+        
+          <span class="connection-online">
+            ● Motor conectado
+          </span>
+        
+        } @else {
+        
+          <span class="connection-offline">
+            ● Motor desconectado
+          </span>
+        
+        }
+      
+      </div>
+
     </div>
 
     @if (loading()) {
